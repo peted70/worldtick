@@ -1,14 +1,20 @@
-/* The point cloud: several tens of thousands of points that resolve out of
- * noise into a building envelope over a ground plane.
+/* The point cloud: tens of thousands of points that resolve out of noise into
+ * a city block, with traffic running the streets between the towers.
  *
- * All of the animation happens in the vertex shader, driven by a single tick
- * uniform. The CPU uploads the geometry once and then does nothing per frame,
- * which is what lets this run at 60fps on a mid-range phone. Written in TSL so
- * one source compiles to both WGSL and GLSL — the WebGL2 fallback path is the
- * same code, just fewer points.
+ * All animation happens in the vertex shader, driven by two tick uniforms.
+ * The CPU uploads geometry once and then does nothing per frame, which is what
+ * lets this hold 60fps on a mid-range phone. Written in TSL so one source
+ * compiles to both WGSL and GLSL — the WebGL2 fallback runs the same code with
+ * fewer points.
  *
- * Module contract (kept deliberately small so the scene can be swapped later):
- *   createCloudScene({ quality }) -> { object3D, resolveTicks, setTick, dispose }
+ * Two clocks, deliberately:
+ *   uTick        monotonic — traffic keeps flowing, never resets
+ *   uResolveTick resets on re-run — only the buildings rebuild
+ *
+ * Module contract (small on purpose, so the scene can be swapped later):
+ *   createCloudScene({ quality })
+ *     -> { object3D, setTick, setResolveTick, setPixelScale, setFade,
+ *          regenerate, dispose }
  */
 
 import * as THREE from 'three/webgpu';
@@ -22,43 +28,42 @@ const COLOR = {
   signal:   new THREE.Color('#0B5FFF'),
   dim:      new THREE.Color('#3D6E9E'),
   hot:      new THREE.Color('#DCE6F2'),
+  traffic:  new THREE.Color('#EAF1FA'),
 };
 
 /* Ease over 90 ticks with up to 30 ticks of stagger — 120 ticks at 60Hz, so
- * the cloud is resolved in about two seconds. */
+ * the block resolves in about two seconds. */
 const EASE_TICKS = 90;
 const STAGGER_TICKS = 30;
 export const RESOLVE_TICKS = EASE_TICKS + STAGGER_TICKS;
 
-/* Depth fade window, in world units from the camera. Set by the stage on
- * resize, because the camera distance changes with viewport aspect and a
- * fixed window would black the scene out on a phone. */
+/* Traffic fades up once the buildings have settled, so the resolve reads as
+ * one event rather than two competing ones. */
+const TRAFFIC_IN = 70;
+
 const FADE_NEAR = 18;
 const FADE_FAR = 72;
-
-/* Distant points sink toward the background but never all the way — losing
- * them entirely reads as a rendering fault rather than as depth. */
 const FADE_FLOOR = 0.3;
 
-/* Framing belongs to the scene, not the stage — the numbers describe how big
- * this particular composition is. Shared with tools/shoot.html so captured
- * stills frame identically to the live render. */
+/* Street layout. Buildings are kept out of the carriageways, which is what
+ * makes the traffic legible as traffic rather than as drifting sparks. */
+const STREET_HALF = 2.6;   // half-width of the clear corridor
+const LANE_OFFSET = 0.95;  // lanes either side of the centreline
+const AVENUES = [0, -10.5, 10.5];
+const STREET_EXTENT = 17;
+const ROAD_Y = 0.12;
+
 export const CAMERA = {
   fov: 50,
   lookAt: [0, 3.5, 0],
   theta: 0.62,
-  phi: 1.16,
+  // Higher vantage than a street-level view: the streets have to be
+  // visible from above or the traffic is hidden in canyons.
+  phi: 0.95,
+  fitRadius: 15,
+  minRadius: 30,
+  maxRadius: 62,
 
-  /* Radius of the part of the scene that must stay in frame. Smaller than the
-   * ground plane on purpose — the terrain may run off the edges, the building
-   * cluster may not. */
-  fitRadius: 10,
-  minRadius: 26,
-  maxRadius: 46,
-
-  /* A tall phone viewport has a very narrow horizontal field of view, so the
-   * distance that frames well on a desktop clips the towers. Solve for
-   * whichever of the two fields of view is tighter. */
   radiusFor(aspect) {
     const vFov = (this.fov * Math.PI) / 180;
     const hFov = 2 * Math.atan(Math.tan(vFov / 2) * aspect);
@@ -69,7 +74,11 @@ export const CAMERA = {
 };
 
 export function createCloudScene({ quality = 'high' } = {}) {
-  const count = quality === 'low' ? 22000 : 64000;
+  const low = quality === 'low';
+  const count = low ? 34000 : 64000;
+  // Deliberately sparse. Traffic has to read as discrete vehicles; pack the
+  // lanes and it turns into a solid glowing line.
+  const trafficCount = low ? 460 : 950;
 
   const group = new THREE.Group();
 
@@ -78,47 +87,57 @@ export function createCloudScene({ quality = 'high' } = {}) {
   const colour = new Float32Array(count * 3);
   const delay = new Float32Array(count);
 
-  buildGeometry({ count, target, origin, colour, delay });
+  // Seeded for the first build, so the generated poster and OG image match
+  // what a visitor actually sees on load. Re-runs use a fresh random seed.
+  let masses = generateMasses(mulberry32(0x5EED));
+  buildCloud({ count, masses, target, origin, colour, delay });
 
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(target, 3));
-  geometry.setAttribute('aOrigin', new THREE.BufferAttribute(origin, 3));
-  geometry.setAttribute('aColor', new THREE.BufferAttribute(colour, 3));
-  geometry.setAttribute('aDelay', new THREE.BufferAttribute(delay, 1));
-  geometry.computeBoundingSphere();
+  const aPos = new THREE.BufferAttribute(target, 3);
+  const aOrg = new THREE.BufferAttribute(origin, 3);
+  const aCol = new THREE.BufferAttribute(colour, 3);
+  const aDly = new THREE.BufferAttribute(delay, 1);
+  geometry.setAttribute('position', aPos);
+  geometry.setAttribute('aOrigin', aOrg);
+  geometry.setAttribute('aColor', aCol);
+  geometry.setAttribute('aDelay', aDly);
 
   const uTick = uniform(0);
-  // (canvasHeight / 2) / tan(fov/2) — set by the stage on every resize, so
-  // points keep a constant apparent size across viewports and pixel ratios.
+  const uResolveTick = uniform(0);
   const uPixelScale = uniform(600);
   const uFadeNear = uniform(FADE_NEAR);
   const uFadeFar = uniform(FADE_FAR);
 
-  const aOrigin = attribute('aOrigin', 'vec3');
-  const aColor = attribute('aColor', 'vec3');
-  const aDelay = attribute('aDelay', 'float');
+  const bgColor = vec3(...COLOR.viewport.toArray());
 
-  // Per-point progress, 0..1, offset by that point's stagger.
-  const progress = uTick.sub(aDelay).div(EASE_TICKS).clamp(0, 1);
+  /* ---- buildings ---- */
+
+  const progress = uResolveTick.sub(attribute('aDelay', 'float')).div(EASE_TICKS).clamp(0, 1);
   // easeOutCubic — fast commit, long settle. Reads as converging rather than
   // arriving, which is the whole idea.
   const eased = float(1).sub(float(1).sub(progress).pow(3));
 
   const material = new THREE.PointsNodeMaterial();
-  material.positionNode = mix(aOrigin, positionGeometry, eased);
+  material.positionNode = mix(attribute('aOrigin', 'vec3'), positionGeometry, eased);
 
   // Squares, not soft discs. This is how real point-cloud viewers draw data,
   // and it dodges the glowing-particle look the brief rules out.
   const depth = positionView.z.negate().max(float(0.001));
   material.sizeNode = uPixelScale.mul(0.045).div(depth).clamp(1.0, 5.0);
 
-  // Distant points sink toward the background rather than fogging to grey.
   const fade = depth.smoothstep(uFadeFar, uFadeNear).mul(1 - FADE_FLOOR).add(FADE_FLOOR);
-  material.colorNode = vec4(mix(vec3(...COLOR.viewport.toArray()), aColor, fade), 1);
+  material.colorNode = vec4(mix(bgColor, attribute('aColor', 'vec3'), fade), 1);
 
   const points = new THREE.Points(geometry, material);
   points.frustumCulled = false;
   group.add(points);
+
+  /* ---- traffic ---- */
+
+  const traffic = buildTraffic({
+    trafficCount, uTick, uResolveTick, uPixelScale, uFadeNear, uFadeFar, bgColor,
+  });
+  group.add(traffic.object);
 
   const grid = buildGrid(uFadeNear, uFadeFar);
   group.add(grid);
@@ -126,68 +145,179 @@ export function createCloudScene({ quality = 'high' } = {}) {
   return {
     object3D: group,
     resolveTicks: RESOLVE_TICKS,
-    setTick(tick) { uTick.value = tick; },
+
+    setTick(t) { uTick.value = t; },
+    setResolveTick(t) { uResolveTick.value = t; },
     setPixelScale(v) { uPixelScale.value = v; },
     setFade(near, far) { uFadeNear.value = near; uFadeFar.value = far; },
+
+    /** New massing, same streets. The city changes; the grid it sits on doesn't. */
+    regenerate(seed = (Math.random() * 0xffffffff) >>> 0) {
+      masses = generateMasses(mulberry32(seed));
+      buildCloud({ count, masses, target, origin, colour, delay });
+      aPos.needsUpdate = true;
+      aOrg.needsUpdate = true;
+      aCol.needsUpdate = true;
+      aDly.needsUpdate = true;
+    },
+
     dispose() {
       geometry.dispose();
       material.dispose();
+      traffic.dispose();
       grid.geometry.dispose();
       grid.material.dispose();
     },
   };
 }
 
-/* ---------- Geometry ---------- */
+/* ---------- Traffic ---------- */
 
-/* A small urban block: three masses of different heights on a ground plane.
- * Points sit on the surfaces only, like a scan would capture — a solid volume
- * of points reads as fog rather than as a building. */
-const GROUND_RADIUS = 34;
+function buildTraffic({
+  trafficCount, uTick, uResolveTick, uPixelScale, uFadeNear, uFadeFar, bgColor,
+}) {
+  const lanes = buildLanes();
 
-/** Hermite step, matching the GPU smoothstep so CPU and shader agree. */
-function smoothstep(a, b, x) {
-  const t = Math.min(Math.max((x - a) / (b - a), 0), 1);
-  return t * t * (3 - 2 * t);
+  const a = new Float32Array(trafficCount * 3);
+  const b = new Float32Array(trafficCount * 3);
+  const speed = new Float32Array(trafficCount);
+  const phase = new Float32Array(trafficCount);
+  const colour = new Float32Array(trafficCount * 3);
+
+  const c = new THREE.Color();
+
+  for (let i = 0; i < trafficCount; i++) {
+    const lane = lanes[i % lanes.length];
+    const o = i * 3;
+    a[o] = lane.a[0]; a[o + 1] = lane.a[1]; a[o + 2] = lane.a[2];
+    b[o] = lane.b[0]; b[o + 1] = lane.b[1]; b[o + 2] = lane.b[2];
+
+    // Coherent speed per lane with a little jitter. Fully random speeds read
+    // as noise; a shared lane speed reads as flow.
+    speed[i] = lane.speed * (0.88 + Math.random() * 0.24);
+    phase[i] = Math.random();
+
+    c.copy(COLOR.traffic).lerp(COLOR.signal, Math.random() * 0.45);
+    colour[o] = c.r; colour[o + 1] = c.g; colour[o + 2] = c.b;
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  // `position` is required by three even though the shader ignores it.
+  geometry.setAttribute('position', new THREE.BufferAttribute(a, 3));
+  geometry.setAttribute('aA', new THREE.BufferAttribute(a, 3));
+  geometry.setAttribute('aB', new THREE.BufferAttribute(b, 3));
+  geometry.setAttribute('aSpeed', new THREE.BufferAttribute(speed, 1));
+  geometry.setAttribute('aPhase', new THREE.BufferAttribute(phase, 1));
+  geometry.setAttribute('aColor', new THREE.BufferAttribute(colour, 3));
+
+  const aA = attribute('aA', 'vec3');
+  const aB = attribute('aB', 'vec3');
+
+  // fract() gives a free respawn at the start of the lane once a vehicle
+  // reaches the end.
+  const t = uTick.mul(attribute('aSpeed', 'float')).add(attribute('aPhase', 'float')).fract();
+
+  const material = new THREE.PointsNodeMaterial();
+  material.positionNode = mix(aA, aB, t);
+
+  const depth = positionView.z.negate().max(float(0.001));
+  // Larger than the structure points: these are the only things moving, and
+  // at 1px a moving point just reads as noise.
+  material.sizeNode = uPixelScale.mul(0.16).div(depth).clamp(2.0, 9.0);
+
+  // Much gentler than the structure fade: these are lights, and they should
+  // stay legible into the distance rather than sinking into the background.
+  const distanceFade = depth.smoothstep(uFadeFar, uFadeNear).mul(0.35).add(0.65);
+  // Hide the wrap: fade each vehicle in and out at the ends of its lane.
+  const endFade = t.smoothstep(0, 0.05).mul(float(1).sub(t.smoothstep(0.95, 1)));
+  // Hold traffic back until the buildings have settled.
+  const arrival = uResolveTick.smoothstep(RESOLVE_TICKS, RESOLVE_TICKS + TRAFFIC_IN);
+
+  material.colorNode = vec4(
+    mix(bgColor, attribute('aColor', 'vec3'), distanceFade.mul(endFade).mul(arrival)),
+    1,
+  );
+
+  const object = new THREE.Points(geometry, material);
+  object.frustumCulled = false;
+
+  return {
+    object,
+    dispose() { geometry.dispose(); material.dispose(); },
+  };
 }
 
-const MASSES = [
-  { x: -3.2, z: -1.4, w: 5.2, d: 5.0, h: 9.0, weight: 1.0 },
-  { x:  3.4, z:  1.0, w: 4.2, d: 4.6, h: 5.4, weight: 0.7 },
-  { x:  1.0, z: -5.2, w: 3.4, d: 3.2, h: 12.4, weight: 0.6 },
-];
+/* Two opposing lanes on every avenue, in both directions. */
+function buildLanes() {
+  const lanes = [];
+  const E = STREET_EXTENT;
 
-function buildGeometry({ count, target, origin, colour, delay }) {
-  const totalWeight = MASSES.reduce((s, m) => s + m.weight, 0);
+  for (const at of AVENUES) {
+    // Ticks to traverse the full lane — roughly 9 to 14 seconds.
+    const zSpeed = 1 / (520 + Math.random() * 300);
+    // Running along Z, at fixed X.
+    lanes.push({ a: [at + LANE_OFFSET, ROAD_Y, -E], b: [at + LANE_OFFSET, ROAD_Y, E], speed: zSpeed });
+    lanes.push({ a: [at - LANE_OFFSET, ROAD_Y, E], b: [at - LANE_OFFSET, ROAD_Y, -E], speed: zSpeed * 1.08 });
+
+    const xSpeed = 1 / (520 + Math.random() * 300);
+    // Running along X, at fixed Z.
+    lanes.push({ a: [-E, ROAD_Y, at - LANE_OFFSET], b: [E, ROAD_Y, at - LANE_OFFSET], speed: xSpeed });
+    lanes.push({ a: [E, ROAD_Y, at + LANE_OFFSET], b: [-E, ROAD_Y, at + LANE_OFFSET], speed: xSpeed * 1.08 });
+  }
+  return lanes;
+}
+
+/* ---------- Massing ---------- */
+
+const GROUND_RADIUS = 34;
+
+/* One block per quadrant, inset far enough to keep the carriageways clear.
+ * Heights are biased low so a single tower dominates, which frames better
+ * than four similar slabs. */
+function generateMasses(rand) {
+  const quads = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+  const inset = STREET_HALF + 0.7;
+
+  return quads.map(([sx, sz]) => {
+    const w = 3.6 + rand() * 3.4;
+    const d = 3.6 + rand() * 3.4;
+    const h = 4.0 + rand() ** 1.8 * 8.6;
+    const x = sx * (inset + w / 2 + rand() * 1.6);
+    const z = sz * (inset + d / 2 + rand() * 1.6);
+    // Points are allocated by surface area, so big towers don't come out sparse.
+    return { x, z, w, d, h, weight: 2 * (w + d) * h + w * d };
+  });
+}
+
+function buildCloud({ count, masses, target, origin, colour, delay }) {
+  const totalWeight = masses.reduce((s, m) => s + m.weight, 0);
   const groundShare = 0.34;
 
   let maxH = 0;
-  for (const m of MASSES) maxH = Math.max(maxH, m.h);
+  for (const m of masses) maxH = Math.max(maxH, m.h);
 
   const c = new THREE.Color();
 
   for (let i = 0; i < count; i++) {
     let x, y, z;
+    const isGround = i < count * groundShare;
     // Ground points dim toward the edge of the disc. Without this the sampled
-    // circle has a visible rim, which immediately reads as a rendering
-    // boundary rather than as terrain running out of capture range.
+    // circle has a visible rim, which reads as a rendering boundary rather
+    // than as terrain running out of capture range.
     let edge = 1;
 
-    if (i < count * groundShare) {
-      // Ground: radial scatter, denser toward the middle, with a slight
-      // undulation so it reads as captured terrain rather than a flat plane.
+    if (isGround) {
       const rn = Math.sqrt(Math.random());
       const r = rn * GROUND_RADIUS;
-      const a = Math.random() * Math.PI * 2;
-      x = Math.cos(a) * r;
-      z = Math.sin(a) * r;
+      const ang = Math.random() * Math.PI * 2;
+      x = Math.cos(ang) * r;
+      z = Math.sin(ang) * r;
       y = Math.sin(x * 0.18) * Math.cos(z * 0.15) * 0.28;
       edge = 1 - smoothstep(0.45, 1.0, rn);
     } else {
-      // Surfaces of one of the masses, chosen by weight.
       let pick = Math.random() * totalWeight;
-      let m = MASSES[0];
-      for (const cand of MASSES) {
+      let m = masses[0];
+      for (const cand of masses) {
         pick -= cand.weight;
         if (pick <= 0) { m = cand; break; }
       }
@@ -207,27 +337,25 @@ function buildGeometry({ count, target, origin, colour, delay }) {
     origin[o + 1] = Math.abs(Math.cos(sb)) * sr * 0.5 + 2;
     origin[o + 2] = Math.sin(sb) * Math.sin(sa) * sr;
 
-    // Resolve from the ground upward — the masses assemble after the terrain,
-    // which reads as a survey being built up rather than everything landing
-    // at once.
+    // Resolve from the ground upward, so it reads as a survey being built up
+    // rather than everything landing at once.
     const height01 = Math.min(y / maxH, 1);
     delay[i] = (Math.random() * 0.55 + height01 * 0.45) * STAGGER_TICKS;
 
-    // Intensity ramp: mostly dim-to-signal, with a small near-white minority
-    // to give the cloud sparkle without resorting to additive blending.
-    const t = Math.random();
-    if (t > 0.93) {
-      c.copy(COLOR.hot);
-    } else {
-      c.copy(COLOR.dim).lerp(COLOR.signal, Math.random() ** 0.7);
-    }
+    // Brightness means motion. Only vehicles are near-white, so the eye reads
+    // the moving points immediately instead of hunting for them among a
+    // sparkly ground plane. Terrain gets no highlights at all and sits back.
+    c.copy(COLOR.dim).lerp(COLOR.signal, Math.random() ** 0.7);
+    if (isGround) c.lerp(COLOR.viewport, 0.32);
+    else if (Math.random() > 0.95) c.copy(COLOR.hot);
     if (edge < 1) c.lerp(COLOR.viewport, 1 - edge);
+
     colour[o] = c.r; colour[o + 1] = c.g; colour[o + 2] = c.b;
   }
 }
 
-/* Uniformly sample the four walls and the roof of a mass. The floor is never
- * visible and would waste points. */
+/* Uniformly sample the four walls and the roof. The floor is never visible
+ * and would waste points. */
 function pointOnBoxShell(m) {
   const wallArea = 2 * (m.w + m.d) * m.h;
   const roofArea = m.w * m.d;
@@ -268,9 +396,30 @@ function buildGrid(uFadeNear, uFadeFar) {
 
   const m = new THREE.LineBasicNodeMaterial({ transparent: true, depthWrite: false });
   const d = positionView.z.negate().max(float(0.001));
-  m.colorNode = vec4(vec3(...COLOR.grid.toArray()), d.smoothstep(uFadeFar, uFadeNear).mul(0.9).add(0.25));
+  m.colorNode = vec4(
+    vec3(...COLOR.grid.toArray()),
+    d.smoothstep(uFadeFar, uFadeNear).mul(0.9).add(0.25),
+  );
 
   const lines = new THREE.LineSegments(g, m);
   lines.frustumCulled = false;
   return lines;
+}
+
+/* ---------- Utilities ---------- */
+
+/** Hermite step, matching the GPU smoothstep so CPU and shader agree. */
+function smoothstep(a, b, x) {
+  const t = Math.min(Math.max((x - a) / (b - a), 0), 1);
+  return t * t * (3 - 2 * t);
+}
+
+/** mulberry32 — small seeded PRNG, so the first build is reproducible. */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }

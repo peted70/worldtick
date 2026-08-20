@@ -24,7 +24,7 @@ css/style.css         Tokens, layout, motion. Mobile-first, designed at 390px.
 js/main.js            Boot: counter and reveals immediately, 3D lazily.
 js/tick.js            Fixed-timestep loop. The counter and the cloud share it.
 js/stage.js           Renderer, camera, pointer/touch/scroll input.
-js/scene-cloud.js     Point cloud geometry and shading. The swappable part.
+js/scene-cloud.js     Massing, streets, traffic and shading. The swappable part.
 js/reveal.js          IntersectionObserver scroll reveals.
 vendor/               three.js r185, committed. No CDN, no third-party requests.
 tools/                Offline tooling. Never deployed, never linked.
@@ -51,6 +51,33 @@ The page is readable before any of the 3D arrives:
 identically. The visible counter and the particle simulation both read from
 it — that identity *is* the brand idea (`world.tick()`), so don't give either
 one its own timer.
+
+### The scene
+
+Four blocks on a street grid, resolving out of noise, with traffic running the
+avenues between them. All of it animates in the vertex shader off two uniforms,
+so the CPU uploads geometry once and then does nothing per frame.
+
+There are **two clocks**, and the distinction matters:
+
+- `uTick` is monotonic. Traffic runs off this and never resets, so it keeps
+  flowing through a rebuild rather than teleporting.
+- `uResolveTick` resets on re-run. Only the buildings replay.
+
+**Re-run** rebuilds the massing with a fresh seed and replays the resolve —
+the `[ re-run ]` button in the hero, or a tap anywhere on the hero background.
+The street grid deliberately stays put: the city changes, the ground it sits
+on doesn't. The first build is seeded (`0x5EED`) so the generated poster and
+OG image match what a visitor sees on load.
+
+One visual rule holds the scene together: **brightness means motion.** Only
+vehicles are near-white. Terrain is dimmed and gets no highlights, so the eye
+finds the moving points immediately instead of hunting for them in a sparkly
+ground plane. Breaking that rule is the fastest way to make the traffic
+illegible.
+
+Under `prefers-reduced-motion`, re-run still works — it generates a new block
+and jumps straight to the resolved frame with no animation.
 
 ---
 

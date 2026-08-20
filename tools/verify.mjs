@@ -51,6 +51,8 @@ const PROBE = `(() => {
     wrapW: wrap ? Math.round(wrap.width) : null,
     mailtoH: mail ? Math.round(mail.height) : null,
     mailtoW: mail ? Math.round(mail.width) : null,
+    rerunH: rect('.rerun') ? Math.round(rect('.rerun').height) : null,
+    rerunShown: !document.querySelector('.rerun')?.hidden,
     stageLive: !!q('.stage.is-live'),
     tick: Number(q('#tick-value')?.textContent || -1),
     fontsLoaded: document.fonts.check('500 1rem "IBM Plex Mono"') && document.fonts.check('400 1rem "IBM Plex Sans"'),
@@ -102,8 +104,8 @@ const run = async () => {
     writeFileSync(join(OUT, 'no-js.png'), await b.screenshot());
     await b.send('Emulation.setScriptExecutionDisabled', { value: false });
 
-    console.log('\nviewport        inner  hOflow  wordmark        mailto      stage  tick   fonts');
-    console.log('─'.repeat(84));
+    console.log('\nviewport        inner  hOflow  wordmark        mailto      re-run   stage  tick   fonts');
+    console.log('─'.repeat(94));
     for (const r of rows) {
       console.log(
         r.vp.padEnd(15),
@@ -111,6 +113,7 @@ const run = async () => {
         (r.hOverflow ? 'FAIL' : 'ok').padEnd(7),
         `${r.wordmarkW}/${r.wrapW} ${r.wordmarkFits ? 'ok' : 'FAIL'}`.padEnd(15),
         `${r.mailtoW}x${r.mailtoH} ${r.mailtoH >= 44 ? 'ok' : 'FAIL'}`.padEnd(11),
+        `${r.rerunH}px ${r.rerunShown && r.rerunH >= 44 ? 'ok' : 'FAIL'}`.padEnd(8),
         (r.stageLive ? 'live' : 'FAIL').padEnd(6),
         String(r.tick).padEnd(6),
         r.fontsLoaded ? 'ok' : 'FAIL',

@@ -40,6 +40,7 @@ export async function createStage({ root, canvas, hero, ticker, reducedMotion })
   let dragTheta = 0, dragVel = 0;      // touch nudge with inertia
   let scroll01 = 0, smoothScroll = 0;
   let baseRadius = CAMERA.minRadius;
+  let resolveEpoch = 0;         // tick at which the current resolve started
 
   const scrim = root.querySelector('.stage__scrim');
 
@@ -88,10 +89,24 @@ export async function createStage({ root, canvas, hero, ticker, reducedMotion })
   }
 
   function renderStatic() {
-    // One resolved frame, a little past full resolution so nothing is mid-ease.
-    cloud.setTick(RESOLVE_TICKS + 60);
+    // One resolved frame, a little past full resolution so nothing is mid-ease
+    // and the traffic has fully arrived.
+    cloud.setTick(RESOLVE_TICKS + 200);
+    cloud.setResolveTick(RESOLVE_TICKS + 200);
     placeCamera(0);
     renderer.render(scene, camera);
+  }
+
+  /* New massing, replayed from scattered. Traffic is on the monotonic clock,
+   * so it keeps flowing through the rebuild rather than teleporting. */
+  function replay() {
+    cloud.regenerate();
+    if (reducedMotion) {
+      // Honour the preference: a new block, but no animation to get there.
+      renderStatic();
+    } else {
+      resolveEpoch = ticker.tick;
+    }
   }
 
   /* ---- listeners ---- */
@@ -112,8 +127,19 @@ export async function createStage({ root, canvas, hero, ticker, reducedMotion })
       }, { passive: true });
     }
 
-    attachDrag(hero, {
+    var drag = attachDrag(hero, {
       onDrag: (dx) => { dragVel += dx * 0.00045; },
+    });
+  }
+
+  /* Tap or click the hero background to re-run the simulation. Purely an
+   * enhancement — the visible button in the hero is the discoverable route,
+   * and this is the shortcut for people who try poking the scene. */
+  if (hero) {
+    hero.addEventListener('click', (e) => {
+      if (e.target.closest('a, button')) return;   // never steal a real control
+      if (drag && drag.wasDragging()) return;      // that was an orbit gesture
+      replay();
     });
   }
 
@@ -148,6 +174,7 @@ export async function createStage({ root, canvas, hero, ticker, reducedMotion })
 
     ticker.onFrame((tick) => {
       cloud.setTick(tick);
+      cloud.setResolveTick(tick - resolveEpoch);
       placeCamera(tick);
       if (scrim) scrim.style.opacity = String(smoothScroll * MAX_SCRIM);
       renderer.render(scene, camera);
@@ -157,6 +184,7 @@ export async function createStage({ root, canvas, hero, ticker, reducedMotion })
 
   return {
     renderer,
+    replay,
     dispose() {
       ro.disconnect();
       cloud.dispose();
@@ -168,8 +196,9 @@ export async function createStage({ root, canvas, hero, ticker, reducedMotion })
 /* Horizontal-dominant drag only. A vertical gesture has to keep scrolling the
  * page, so we only claim the touch once it is clearly sideways. */
 function attachDrag(el, { onDrag }) {
-  if (!el) return;
+  if (!el) return null;
   let active = false, claimed = false, lastX = 0, startX = 0, startY = 0;
+  let draggedAt = 0;
 
   el.addEventListener('pointerdown', (e) => {
     if (e.pointerType === 'mouse') return;
@@ -192,9 +221,16 @@ function attachDrag(el, { onDrag }) {
     if (e.cancelable) e.preventDefault();
     onDrag(e.clientX - lastX);
     lastX = e.clientX;
+    draggedAt = performance.now();
   }, { passive: false });
 
   const end = () => { active = false; claimed = false; };
   el.addEventListener('pointerup', end, { passive: true });
   el.addEventListener('pointercancel', end, { passive: true });
+
+  return {
+    // The click event fires right after pointerup, so a short window is enough
+    // to tell "finished dragging" from "tapped".
+    wasDragging: () => performance.now() - draggedAt < 250,
+  };
 }

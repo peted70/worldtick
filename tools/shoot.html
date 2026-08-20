@@ -73,7 +73,10 @@ camera.lookAt(lookAt);
 
 cloud.setFade(radius * 0.5, radius * 2.2);
 cloud.setPixelScale((h * 0.5) / Math.tan((CAMERA.fov * Math.PI) / 360));
+// Both clocks: the resolve clock settles the buildings, the monotonic one
+// places the traffic. Without the first, the poster is a cloud of noise.
 cloud.setTick(TICK);
+cloud.setResolveTick(TICK);
 
 await document.fonts.ready;
 renderer.render(scene, camera);

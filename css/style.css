@@ -179,8 +179,32 @@ img { max-width: 100%; display: block; }
 .readout__label::after { content: ''; }
 .readout__value { color: var(--signal-bright); }
 
+/* Reads as an instrument control rather than a web button. Sized for a
+   comfortable thumb: the visible bracket is small, the tap target is not. */
+.rerun {
+  align-self: flex-start;
+  margin-top: 0.75rem;
+  margin-left: -0.75rem;      /* optical alignment with the text above */
+  padding: 0.6875rem 0.75rem;
+  min-height: 44px;
+  background: none;
+  border: 0;
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--slate-dark);
+  cursor: pointer;
+  transition: color 200ms ease;
+}
+.rerun::before { content: '['; margin-right: 0.5em; }
+.rerun::after  { content: ']'; margin-left: 0.5em; }
+.rerun:hover, .rerun:focus-visible { color: var(--signal-bright); }
+.rerun[hidden] { display: none; }
+
 .hero__line {
-  margin-top: 1.75rem;
+  margin-top: 1.25rem;
   max-width: 26ch;
   color: var(--paper-dim);
   text-wrap: pretty;

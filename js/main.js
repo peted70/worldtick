@@ -48,7 +48,14 @@ async function initStage() {
 
   try {
     const { createStage } = await import('./stage.js');
-    await createStage({ root, canvas, hero, ticker, reducedMotion });
+    const stage = await createStage({ root, canvas, hero, ticker, reducedMotion });
+
+    // Only now is there something for the control to act on.
+    const rerun = document.getElementById('rerun');
+    if (rerun) {
+      rerun.hidden = false;
+      rerun.addEventListener('click', () => stage.replay());
+    }
   } catch (err) {
     // Poster remains visible. Nothing else on the page depends on this.
     console.warn('[worldtick] 3D stage unavailable:', err);
