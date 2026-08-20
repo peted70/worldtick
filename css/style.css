@@ -251,6 +251,83 @@ img { max-width: 100%; display: block; }
 
 .caps { display: grid; gap: 2.75rem; }
 
+/* ---------- Capability figures ----------
+   Technical drawings rather than icons: hairlines on graph paper, drawn in
+   on reveal. The grid deliberately echoes the one in the hero, so the two
+   registers of the page read as the same world. */
+
+.defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+.pat-line { fill: none; stroke: var(--rule); stroke-width: 1; }
+.pat-dot { fill: var(--signal-dim); }
+
+.fig {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-bottom: 1.375rem;
+}
+.fig__grid { opacity: 0.5; }
+.fig__fill { opacity: 0.85; }
+
+.fig__rule   { fill: none; stroke: var(--rule); stroke-width: 1.4; }
+.fig__ink    { fill: none; stroke: var(--ink); stroke-width: 1.6;
+               stroke-linejoin: round; stroke-linecap: round; }
+.fig__signal { fill: none; stroke: var(--signal); stroke-width: 1.6;
+               stroke-linejoin: round; stroke-linecap: round; }
+.fig__dot    { fill: var(--signal); }
+.fig__scan   { fill: none; stroke: var(--signal); stroke-width: 1.4; opacity: 0.55; }
+
+/* Every drawable path carries pathLength="1", so one dash length works for
+   all of them regardless of their real geometry. Only hidden when JS is
+   running — with JS off the figures are simply already drawn. */
+.js .fig .draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+/* Two selectors because the figure is sometimes inside the revealed element
+   and sometimes is the revealed element itself. */
+.js .is-in .fig .draw,
+.js .fig.is-in .draw {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 950ms cubic-bezier(0.22, 0.61, 0.36, 1) var(--d, 0ms);
+}
+
+/* One moving element per figure, each on its own period so they never fall
+   into step with each other. */
+.fig__pulse--sync { animation: fig-sync 3.4s ease-in-out infinite; }
+.fig__pulse--ray  { animation: fig-ray 4.6s ease-in-out infinite; }
+.fig__pulse--scan  { animation: fig-scan 5.2s ease-in-out infinite; }
+.fig__pulse--layer { animation: fig-layer 6.1s ease-in-out infinite; }
+
+.how { display: grid; gap: 2.75rem; }
+.fig--how { margin-bottom: 0; }
+
+@keyframes fig-sync {
+  0%, 6%   { transform: translateX(0); opacity: 0; }
+  14%      { opacity: 1; }
+  86%      { opacity: 1; }
+  100%     { transform: translateX(64px); opacity: 0; }
+}
+@keyframes fig-ray {
+  0%, 8%   { transform: translate(0, 0); opacity: 0; }
+  16%      { opacity: 1; }
+  84%      { opacity: 1; }
+  100%     { transform: translate(206px, -29px); opacity: 0; }
+}
+@keyframes fig-scan {
+  0%, 5%   { transform: translateX(0); opacity: 0; }
+  12%      { opacity: 1; }
+  88%      { opacity: 1; }
+  100%     { transform: translateX(120px); opacity: 0; }
+}
+@keyframes fig-layer {
+  0%, 4%   { transform: translateX(0); opacity: 0; }
+  10%      { opacity: 1; }
+  90%      { opacity: 1; }
+  100%     { transform: translateX(252px); opacity: 0; }
+}
+
 .cap__title {
   font-family: var(--mono);
   font-weight: 500;
@@ -328,6 +405,8 @@ img { max-width: 100%; display: block; }
   .doc { padding-block: 7rem; }
   .doc--tail { padding-top: 0; }
   .doc--tail .wrap { padding-top: 7rem; }
+  .how { grid-template-columns: 1.05fr 1fr; gap: 4.5rem; align-items: center; }
+  .how .lede { margin: 0; }
   .contact { padding-block: 8rem; }
   .hero__inner { padding-block: 6rem 2.5rem; }
   .lede { font-size: 1.375rem; }

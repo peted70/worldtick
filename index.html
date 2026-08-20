@@ -39,6 +39,19 @@
 </head>
 <body>
 
+<!-- Shared fill patterns for the capability figures. Defined once; the graph
+     paper echoes the grid in the hero, tying the two registers together. -->
+<svg class="defs" width="0" height="0" aria-hidden="true" focusable="false">
+  <defs>
+    <pattern id="graph" width="16" height="16" patternUnits="userSpaceOnUse">
+      <path class="pat-line" d="M16 0V16M0 16H16"/>
+    </pattern>
+    <pattern id="dots" width="7" height="7" patternUnits="userSpaceOnUse">
+      <circle class="pat-dot" cx="3.5" cy="3.5" r="1.15"/>
+    </pattern>
+  </defs>
+</svg>
+
 <!-- The persistent 3D stage. Poster shows until the renderer is ready,
      and stays permanently if JS or WebGL are unavailable. -->
 <div class="stage" aria-hidden="true">
@@ -86,6 +99,22 @@
 
         <div class="caps">
           <article class="cap reveal">
+            <!-- An asset and its synchronised model, kept in step. -->
+            <svg class="fig" viewBox="0 0 320 150" aria-hidden="true" focusable="false">
+              <rect class="fig__grid" width="320" height="150" fill="url(#graph)"/>
+              <path class="fig__rule draw" pathLength="1" d="M12 122H308"/>
+
+              <path class="fig__ink draw" pathLength="1" style="--d:80ms" d="M30 122V58H72V122"/>
+              <path class="fig__ink draw" pathLength="1" style="--d:160ms" d="M80 122V84H118V122"/>
+
+              <rect class="fig__fill" x="202" y="58" width="42" height="64" fill="url(#dots)"/>
+              <rect class="fig__fill" x="252" y="84" width="38" height="38" fill="url(#dots)"/>
+              <path class="fig__signal draw" pathLength="1" style="--d:320ms" d="M202 122V58H244V122"/>
+              <path class="fig__signal draw" pathLength="1" style="--d:400ms" d="M252 122V84H290V122"/>
+
+              <path class="fig__rule draw" pathLength="1" style="--d:520ms" d="M128 90H192M128 84V96M192 84V96"/>
+              <g class="fig__pulse fig__pulse--sync"><circle class="fig__dot" cx="128" cy="90" r="3.2"/></g>
+            </svg>
             <h3 class="cap__title">Digital twins</h3>
             <p>
               Simulation and synchronised virtual models of physical assets,
@@ -95,6 +124,20 @@
           </article>
 
           <article class="cap reveal">
+            <!-- A camera, a volume, and what the volume projects to. -->
+            <svg class="fig" viewBox="0 0 320 150" aria-hidden="true" focusable="false">
+              <rect class="fig__grid" width="320" height="150" fill="url(#graph)"/>
+
+              <path class="fig__rule draw" pathLength="1" d="M36 75L252 20M36 75L252 130"/>
+              <path class="fig__ink draw" pathLength="1" style="--d:80ms" d="M252 14V136"/>
+              <path class="fig__ink" d="M18 66L38 75L18 84Z"/>
+
+              <path class="fig__ink draw" pathLength="1" style="--d:240ms"
+                    d="M110 62H154V106H110ZM110 62L126 52H170L154 62M154 106L170 96V52"/>
+
+              <path class="fig__signal draw" pathLength="1" style="--d:460ms" d="M244 46H252V112H244"/>
+              <g class="fig__pulse fig__pulse--ray"><circle class="fig__dot" cx="38" cy="75" r="3.2"/></g>
+            </svg>
             <h3 class="cap__title">Spatial computing</h3>
             <p>
               Immersive and 3D interfaces, real-time rendering, geospatial
@@ -104,6 +147,28 @@
           </article>
 
           <article class="cap reveal">
+            <!-- Ragged multi-source input resolving into one readable series. -->
+            <svg class="fig" viewBox="0 0 320 150" aria-hidden="true" focusable="false">
+              <rect class="fig__grid" width="320" height="150" fill="url(#graph)"/>
+
+              <path class="fig__rule draw" pathLength="1"
+                    d="M16 42L30 34L44 48L58 36L72 50L86 38L100 46L114 34"/>
+              <path class="fig__rule draw" pathLength="1" style="--d:90ms"
+                    d="M16 78L30 70L44 82L58 66L72 84L86 72L100 68L114 80"/>
+              <path class="fig__rule draw" pathLength="1" style="--d:180ms"
+                    d="M16 112L30 118L44 106L58 116L72 104L86 118L100 110L114 114"/>
+
+              <path class="fig__rule draw" pathLength="1" style="--d:300ms"
+                    d="M114 34L160 76M114 80H160M114 114L160 76"/>
+              <circle class="fig__dot" cx="164" cy="76" r="4.2"/>
+
+              <path class="fig__ink draw" pathLength="1" style="--d:440ms"
+                    d="M184 100H208V80H232V92H256V56H280V70H304"/>
+              <path class="fig__rule draw" pathLength="1" style="--d:520ms" d="M184 124H304"/>
+              <circle class="fig__dot" cx="256" cy="56" r="3.4"/>
+
+              <g class="fig__pulse fig__pulse--scan"><path class="fig__scan" d="M184 30V124"/></g>
+            </svg>
             <h3 class="cap__title">Decision support</h3>
             <p>
               Turning complex, multi-source data into interfaces people can reason
@@ -117,11 +182,31 @@
     <section class="doc doc--tail" aria-labelledby="how-h">
       <div class="wrap">
         <h2 class="label" id="how-h">How we work</h2>
-        <p class="lede reveal">
-          Worldtick works as a specialist partner within larger delivery teams —
-          bringing depth in the visualisation and simulation layer to programmes
-          led by systems integrators and prime contractors.
-        </p>
+
+        <div class="how">
+          <p class="lede reveal">
+            Worldtick works as a specialist partner within larger delivery teams —
+            bringing depth in the visualisation and simulation layer to programmes
+            led by systems integrators and prime contractors.
+          </p>
+
+          <!-- A programme as a stack of layers, with one of them ours. -->
+          <svg class="fig fig--how reveal" viewBox="0 0 320 150" aria-hidden="true" focusable="false">
+            <rect class="fig__grid" width="320" height="150" fill="url(#graph)"/>
+
+            <path class="fig__rule draw" pathLength="1" d="M20 16H300V38H20Z"/>
+            <path class="fig__rule draw" pathLength="1" style="--d:80ms" d="M20 46H300V68H20Z"/>
+
+            <rect class="fig__fill" x="20" y="76" width="280" height="22" fill="url(#dots)"/>
+            <path class="fig__signal draw" pathLength="1" style="--d:200ms" d="M20 76H300V98H20Z"/>
+
+            <path class="fig__rule draw" pathLength="1" style="--d:300ms" d="M20 106H300V128H20Z"/>
+
+            <path class="fig__rule draw" pathLength="1" style="--d:380ms" d="M10 16V128M6 16H14M6 128H14"/>
+
+            <g class="fig__pulse fig__pulse--layer"><circle class="fig__dot" cx="34" cy="87" r="4"/></g>
+          </svg>
+        </div>
       </div>
     </section>
 

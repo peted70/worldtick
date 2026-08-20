@@ -120,6 +120,33 @@ randomness, and removing any one of them brings the regularity back:
 
 Vehicle lengths vary too, so a long one reads as a van rather than a car.
 
+### Capability figures
+
+The four diagrams in the document section are **inline SVG**, not images and
+not icons. Each one shows the actual mechanism rather than decorating the
+heading: an asset beside its dotted twin with a sync line; a camera, a volume
+and what that volume projects onto a plane; ragged multi-source input resolving
+into one readable series; a programme as a stack of layers with ours picked
+out.
+
+They sit on graph paper that deliberately echoes the grid in the hero, which is
+what stops the light half of the page feeling like a different site.
+
+Three things worth knowing before editing them:
+
+- Every animated path carries `pathLength="1"`, so a single
+  `stroke-dasharray: 1` draws any path in regardless of its real geometry. No
+  per-path length constants to keep in sync.
+- The dash is only applied under `.js`. With JavaScript off the figures are
+  simply already drawn, rather than invisible.
+- The fills come from two shared `<pattern>` definitions near the top of
+  `index.html`. That keeps the markup small enough to hand-edit — the dotted
+  twin is two rectangles, not two hundred circles.
+
+Motion is CSS, one moving element per figure, each on its own period so they
+never fall into step. This is the one place that does not run off the tick
+loop; nothing here displays time, so a second clock costs nothing.
+
 ### Camera cuts
 
 Every 17–43 seconds the camera hard-cuts to another vantage — a switch of feed
