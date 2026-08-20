@@ -47,7 +47,7 @@ The page is readable before any of the 3D arrives:
 | 4 | WebGPU | Full scene |
 
 Point count is chosen by **viewport width, not by backend**: under 500px it
-drops to 34k structure points and 460 vehicles, above it 64k and 950. Both
+drops to 34k structure points and 70 vehicles, above it 64k and 120. Both
 backends render whichever they are given.
 
 `js/tick.js` is the spine. It runs a fixed 60Hz accumulator decoupled from
@@ -79,6 +79,31 @@ vehicles are near-white. Terrain is dimmed and gets no highlights, so the eye
 finds the moving points immediately instead of hunting for them in a sparkly
 ground plane. Breaking that rule is the fastest way to make the traffic
 illegible.
+
+### Vehicles
+
+A vehicle is **four lamps, not one point** — two headlights forward, two tail
+lights back, offset in the lane's own frame. Because the lanes are axis
+aligned, those offsets are baked into world space on the CPU, so the shader
+only adds a vector. All four lamps share a vehicle's speed and phase; give
+them their own and the car pulls apart.
+
+Red tail lights are the only warm colour on the site, and a deliberate
+departure from the spec's single-accent rule. They earn it: they tell you
+which way a vehicle is facing instantly, with no legend. They are dimmed
+toward the background so they never compete with the blue.
+
+Two constants govern legibility, and they trade against each other:
+`HALF_LENGTH`/`HALF_TRACK` set how far apart the lamps sit, and the lamp
+`sizeNode` factor sets how big each one is. Push the size up and the four
+merge into one blob at mid distance; push it down and vehicles disappear.
+
+Density is **variable by design.** Each lane draws its own load from a
+low-skewed distribution, so most streets run quiet and one or two run busy,
+and busier lanes run slower. Within a lane, vehicles are clustered into one to
+three platoons rather than spaced evenly — evenly spaced traffic looks like a
+conveyor belt, and clustering is what lets a low vehicle count still read as a
+working street.
 
 Under `prefers-reduced-motion`, re-run still works — it generates a new block
 and jumps straight to the resolved frame with no animation.

@@ -28,7 +28,10 @@ const COLOR = {
   signal:   new THREE.Color('#0B5FFF'),
   dim:      new THREE.Color('#3D6E9E'),
   hot:      new THREE.Color('#DCE6F2'),
-  traffic:  new THREE.Color('#EAF1FA'),
+  head:     new THREE.Color('#F4F8FF'),
+  // The one warm colour on the page. It earns its place: red tail lights are
+  // what tell you which way a vehicle is facing, at a glance, with no legend.
+  tail:     new THREE.Color('#D8402C'),
 };
 
 /* Ease over 90 ticks with up to 30 ticks of stagger — 120 ticks at 60Hz, so
@@ -53,6 +56,18 @@ const AVENUES = [0, -10.5, 10.5];
 const STREET_EXTENT = 17;
 const ROAD_Y = 0.12;
 
+/* A vehicle is four lamps, not one point: two headlights forward, two tail
+ * lights back. At this scale that is what makes a moving dot read as a car
+ * with a direction rather than as a drifting spark. */
+const HALF_LENGTH = 0.30;   // front axle to rear, halved
+const HALF_TRACK = 0.13;    // lamp separation across the body, halved
+const LAMPS = [
+  { long:  1, lat: -1, tail: false },
+  { long:  1, lat:  1, tail: false },
+  { long: -1, lat: -1, tail: true },
+  { long: -1, lat:  1, tail: true },
+];
+
 export const CAMERA = {
   fov: 50,
   lookAt: [0, 3.5, 0],
@@ -76,9 +91,10 @@ export const CAMERA = {
 export function createCloudScene({ quality = 'high' } = {}) {
   const low = quality === 'low';
   const count = low ? 34000 : 64000;
-  // Deliberately sparse. Traffic has to read as discrete vehicles; pack the
-  // lanes and it turns into a solid glowing line.
-  const trafficCount = low ? 460 : 950;
+  // Deliberately sparse, and four lamps each — so this is ~4x the point count
+  // but a small fraction of the vehicles. Pack the lanes and it stops reading
+  // as traffic and starts reading as a glowing line.
+  const vehicleCount = low ? 70 : 120;
 
   const group = new THREE.Group();
 
@@ -135,7 +151,7 @@ export function createCloudScene({ quality = 'high' } = {}) {
   /* ---- traffic ---- */
 
   const traffic = buildTraffic({
-    trafficCount, uTick, uResolveTick, uPixelScale, uFadeNear, uFadeFar, bgColor,
+    vehicleCount, uTick, uResolveTick, uPixelScale, uFadeNear, uFadeFar, bgColor,
   });
   group.add(traffic.object);
 
@@ -174,31 +190,56 @@ export function createCloudScene({ quality = 'high' } = {}) {
 /* ---------- Traffic ---------- */
 
 function buildTraffic({
-  trafficCount, uTick, uResolveTick, uPixelScale, uFadeNear, uFadeFar, bgColor,
+  vehicleCount, uTick, uResolveTick, uPixelScale, uFadeNear, uFadeFar, bgColor,
 }) {
   const lanes = buildLanes();
+  const vehicles = placeVehicles(lanes, vehicleCount);
+  const pointCount = vehicles.length * LAMPS.length;
 
-  const a = new Float32Array(trafficCount * 3);
-  const b = new Float32Array(trafficCount * 3);
-  const speed = new Float32Array(trafficCount);
-  const phase = new Float32Array(trafficCount);
-  const colour = new Float32Array(trafficCount * 3);
+  const a = new Float32Array(pointCount * 3);
+  const b = new Float32Array(pointCount * 3);
+  const offset = new Float32Array(pointCount * 3);
+  const speed = new Float32Array(pointCount);
+  const phase = new Float32Array(pointCount);
+  const colour = new Float32Array(pointCount * 3);
 
   const c = new THREE.Color();
+  let p = 0;
 
-  for (let i = 0; i < trafficCount; i++) {
-    const lane = lanes[i % lanes.length];
-    const o = i * 3;
-    a[o] = lane.a[0]; a[o + 1] = lane.a[1]; a[o + 2] = lane.a[2];
-    b[o] = lane.b[0]; b[o + 1] = lane.b[1]; b[o + 2] = lane.b[2];
+  for (const v of vehicles) {
+    const { lane } = v;
+    // Lanes are axis-aligned, so the body frame is constant per vehicle and
+    // the lamp offsets can be baked into world space here. The shader then
+    // only has to add a vector.
+    const dx = lane.b[0] - lane.a[0];
+    const dz = lane.b[2] - lane.a[2];
+    const len = Math.hypot(dx, dz) || 1;
+    const fx = dx / len, fz = dz / len;        // forward
+    const lx = -fz, lz = fx;                   // left
 
-    // Coherent speed per lane with a little jitter. Fully random speeds read
-    // as noise; a shared lane speed reads as flow.
-    speed[i] = lane.speed * (0.88 + Math.random() * 0.24);
-    phase[i] = Math.random();
+    for (const lamp of LAMPS) {
+      const o = p * 3;
+      a[o] = lane.a[0]; a[o + 1] = lane.a[1]; a[o + 2] = lane.a[2];
+      b[o] = lane.b[0]; b[o + 1] = lane.b[1]; b[o + 2] = lane.b[2];
 
-    c.copy(COLOR.traffic).lerp(COLOR.signal, Math.random() * 0.45);
-    colour[o] = c.r; colour[o + 1] = c.g; colour[o + 2] = c.b;
+      offset[o]     = fx * lamp.long * HALF_LENGTH + lx * lamp.lat * HALF_TRACK;
+      offset[o + 1] = 0;
+      offset[o + 2] = fz * lamp.long * HALF_LENGTH + lz * lamp.lat * HALF_TRACK;
+
+      // Every lamp on a vehicle shares its motion, or the car pulls apart.
+      speed[p] = v.speed;
+      phase[p] = v.phase;
+
+      if (lamp.tail) {
+        // Tail lights are much dimmer than headlights in reality, and a field
+        // of full-brightness red would fight the blue for attention.
+        c.copy(COLOR.tail).lerp(COLOR.viewport, 0.15);
+      } else {
+        c.copy(COLOR.head);
+      }
+      colour[o] = c.r; colour[o + 1] = c.g; colour[o + 2] = c.b;
+      p++;
+    }
   }
 
   const geometry = new THREE.BufferGeometry();
@@ -206,6 +247,7 @@ function buildTraffic({
   geometry.setAttribute('position', new THREE.BufferAttribute(a, 3));
   geometry.setAttribute('aA', new THREE.BufferAttribute(a, 3));
   geometry.setAttribute('aB', new THREE.BufferAttribute(b, 3));
+  geometry.setAttribute('aOffset', new THREE.BufferAttribute(offset, 3));
   geometry.setAttribute('aSpeed', new THREE.BufferAttribute(speed, 1));
   geometry.setAttribute('aPhase', new THREE.BufferAttribute(phase, 1));
   geometry.setAttribute('aColor', new THREE.BufferAttribute(colour, 3));
@@ -218,12 +260,13 @@ function buildTraffic({
   const t = uTick.mul(attribute('aSpeed', 'float')).add(attribute('aPhase', 'float')).fract();
 
   const material = new THREE.PointsNodeMaterial();
-  material.positionNode = mix(aA, aB, t);
+  material.positionNode = mix(aA, aB, t).add(attribute('aOffset', 'vec3'));
 
   const depth = positionView.z.negate().max(float(0.001));
-  // Larger than the structure points: these are the only things moving, and
-  // at 1px a moving point just reads as noise.
-  material.sizeNode = uPixelScale.mul(0.16).div(depth).clamp(2.0, 9.0);
+  // Smaller than when one point was a whole vehicle — these are individual
+  // lamps, and they have to stay distinguishable as four rather than merging
+  // into one blob at mid distance.
+  material.sizeNode = uPixelScale.mul(0.105).div(depth).clamp(1.5, 6.0);
 
   // Much gentler than the structure fade: these are lights, and they should
   // stay legible into the distance rather than sinking into the background.
@@ -247,24 +290,69 @@ function buildTraffic({
   };
 }
 
-/* Two opposing lanes on every avenue, in both directions. */
+/* Two opposing lanes on every avenue, in both directions. Each lane carries
+ * its own traffic level, so some run busy and some run nearly empty. */
 function buildLanes() {
   const lanes = [];
   const E = STREET_EXTENT;
 
+  // Skewed low: most streets should be quiet, a couple busy. A uniform draw
+  // makes every lane look about the same, which is the thing to avoid.
+  const density = () => 0.12 + Math.random() ** 2.1 * 1.5;
+
+  const add = (a, b, speed) => {
+    const load = density();
+    lanes.push({
+      a, b, load,
+      // Busier lanes run slower. Cheap, and it sells the whole thing.
+      speed: speed * (1.16 - load * 0.28),
+    });
+  };
+
   for (const at of AVENUES) {
     // Ticks to traverse the full lane — roughly 9 to 14 seconds.
     const zSpeed = 1 / (520 + Math.random() * 300);
-    // Running along Z, at fixed X.
-    lanes.push({ a: [at + LANE_OFFSET, ROAD_Y, -E], b: [at + LANE_OFFSET, ROAD_Y, E], speed: zSpeed });
-    lanes.push({ a: [at - LANE_OFFSET, ROAD_Y, E], b: [at - LANE_OFFSET, ROAD_Y, -E], speed: zSpeed * 1.08 });
+    add([at + LANE_OFFSET, ROAD_Y, -E], [at + LANE_OFFSET, ROAD_Y, E], zSpeed);
+    add([at - LANE_OFFSET, ROAD_Y, E], [at - LANE_OFFSET, ROAD_Y, -E], zSpeed * 1.08);
 
     const xSpeed = 1 / (520 + Math.random() * 300);
-    // Running along X, at fixed Z.
-    lanes.push({ a: [-E, ROAD_Y, at - LANE_OFFSET], b: [E, ROAD_Y, at - LANE_OFFSET], speed: xSpeed });
-    lanes.push({ a: [E, ROAD_Y, at + LANE_OFFSET], b: [-E, ROAD_Y, at + LANE_OFFSET], speed: xSpeed * 1.08 });
+    add([-E, ROAD_Y, at - LANE_OFFSET], [E, ROAD_Y, at - LANE_OFFSET], xSpeed);
+    add([E, ROAD_Y, at + LANE_OFFSET], [-E, ROAD_Y, at + LANE_OFFSET], xSpeed * 1.08);
   }
   return lanes;
+}
+
+/* Distribute vehicles across lanes by load, and clump them within a lane.
+ * Evenly spaced traffic looks like a conveyor belt; real traffic arrives in
+ * platoons with gaps between, which is also what makes a low vehicle count
+ * still read as a working street. */
+function placeVehicles(lanes, vehicleCount) {
+  const totalLoad = lanes.reduce((s, l) => s + l.load, 0);
+  const vehicles = [];
+
+  for (const lane of lanes) {
+    const n = Math.round((vehicleCount * lane.load) / totalLoad);
+    if (n === 0) continue;
+
+    const platoons = 1 + Math.floor(Math.random() * 3);
+    const centres = Array.from({ length: platoons }, () => Math.random());
+
+    for (let i = 0; i < n; i++) {
+      const centre = centres[i % platoons];
+      const spread = 0.04 + Math.random() * 0.07;
+      // Sum of two uniforms — triangular, so vehicles bunch toward the centre
+      // of their platoon rather than spreading evenly across it.
+      const jitter = (Math.random() + Math.random() - 1) * spread;
+      const phase = ((centre + jitter) % 1 + 1) % 1;
+
+      vehicles.push({
+        lane,
+        phase,
+        speed: lane.speed * (0.94 + Math.random() * 0.12),
+      });
+    }
+  }
+  return vehicles;
 }
 
 /* ---------- Massing ---------- */
