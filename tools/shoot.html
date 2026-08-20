@@ -1,0 +1,88 @@
+<!doctype html>
+<!-- Offline asset renderer. Not deployed, not linked from the site.
+     Renders one resolved frame of the real scene at an exact size so the
+     poster and Open Graph images match the live render rather than
+     approximating it. Driven by tools/shoot.mjs. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>worldtick shoot</title>
+<link rel="stylesheet" href="../css/style.css">
+<script type="importmap">
+{"imports":{"three/webgpu":"../vendor/three.webgpu.min.js","three/tsl":"../vendor/three.tsl.min.js"}}
+</script>
+<style>
+  html, body { margin: 0; background: #0C1116; overflow: hidden; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .plate {
+    position: fixed; inset: 0; display: none;
+    align-items: flex-end; padding: 6.5%;
+  }
+  .plate .wordmark { font-size: 7.2vh; margin: 0; }
+  body[data-mode="og"] .plate { display: flex; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div class="plate">
+  <h1 class="wordmark"><span class="wordmark__a">world</span><span class="wordmark__b">.tick</span><span class="wordmark__c">()</span></h1>
+</div>
+
+<script type="module">
+import * as THREE from 'three/webgpu';
+import { createCloudScene, RESOLVE_TICKS, CAMERA } from '../js/scene-cloud.js';
+
+const params = new URLSearchParams(location.search);
+const mode = params.get('mode') || 'poster';
+document.body.dataset.mode = mode;
+
+// A little past full resolution, so nothing is caught mid-ease.
+const TICK = RESOLVE_TICKS + 90;
+
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGPURenderer({ canvas, antialias: true, alpha: false });
+renderer.setPixelRatio(1);            // the capture viewport is already at target size
+renderer.setClearColor(0x0c1116, 1);
+await renderer.init();
+
+const w = window.innerWidth, h = window.innerHeight;
+renderer.setSize(w, h, false);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(CAMERA.fov, w / h, 0.5, 200);
+
+const cloud = createCloudScene({ quality: 'high' });
+scene.add(cloud.object3D);
+
+// Frame more generously than the live page for the poster: it is displayed
+// with object-fit:cover at unknown aspect, so the composition has to survive
+// being cropped on either axis.
+const aspect = w / h;
+const radius = CAMERA.radiusFor(aspect) * (mode === 'poster' ? 1.18 : 1.0);
+const theta = CAMERA.theta + (mode === 'og' ? 0.35 : 0);
+const phi = CAMERA.phi;
+const lookAt = new THREE.Vector3(...CAMERA.lookAt);
+
+camera.position.set(
+  lookAt.x + radius * Math.sin(phi) * Math.sin(theta),
+  lookAt.y + radius * Math.cos(phi),
+  lookAt.z + radius * Math.sin(phi) * Math.cos(theta),
+);
+camera.lookAt(lookAt);
+
+cloud.setFade(radius * 0.5, radius * 2.2);
+cloud.setPixelScale((h * 0.5) / Math.tan((CAMERA.fov * Math.PI) / 360));
+cloud.setTick(TICK);
+
+await document.fonts.ready;
+renderer.render(scene, camera);
+// Second pass: the first render of a node material compiles shaders, and on
+// some backends the result only lands in the swap chain on the frame after.
+requestAnimationFrame(() => {
+  renderer.render(scene, camera);
+  window.__shotReady = true;
+});
+</script>
+</body>
+</html>

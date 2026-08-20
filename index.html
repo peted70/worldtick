@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Worldtick — spatial computing, digital twins and 3D visualisation</title>
+<meta name="description" content="Worldtick Ltd is a specialist consultancy in spatial computing, digital twins and 3D visualisation for public sector and enterprise programmes.">
+<link rel="canonical" href="https://worldtick.co.uk/">
+<meta name="theme-color" content="#0C1116">
+
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://worldtick.co.uk/">
+<meta property="og:site_name" content="Worldtick">
+<meta property="og:title" content="Worldtick — spatial computing, digital twins and 3D visualisation">
+<meta property="og:description" content="A specialist consultancy in the visualisation and simulation layer of digital twin programmes.">
+<meta property="og:image" content="https://worldtick.co.uk/img/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+<link rel="preload" href="fonts/ibm-plex-mono-500.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/ibm-plex-sans-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/style.css">
+
+<!-- Synchronous, so scroll-reveal elements are never hidden on a no-JS page. -->
+<script>document.documentElement.classList.add('js');</script>
+
+<script type="importmap">
+{"imports":{"three/webgpu":"./vendor/three.webgpu.min.js","three/tsl":"./vendor/three.tsl.min.js"}}
+</script>
+<script type="module" src="js/main.js"></script>
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Organization","name":"Worldtick Ltd","url":"https://worldtick.co.uk/","email":"enquiries@worldtick.co.uk","description":"Specialist consultancy in spatial computing, digital twins and 3D visualisation.","address":{"@type":"PostalAddress","addressCountry":"GB"}}
+</script>
+</head>
+<body>
+
+<!-- The persistent 3D stage. Poster shows until the renderer is ready,
+     and stays permanently if JS or WebGL are unavailable. -->
+<div class="stage" aria-hidden="true">
+  <img class="stage__poster" src="img/hero-poster.jpg" alt="" width="900" height="900" fetchpriority="high">
+  <canvas class="stage__canvas" id="stage-canvas"></canvas>
+  <div class="stage__scrim"></div>
+</div>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<div class="page">
+
+  <header class="hero viewport" id="top">
+    <div class="wrap hero__inner">
+
+      <h1 class="wordmark" aria-label="Worldtick">
+        <span class="wordmark__a">world</span><span class="wordmark__b">.tick</span><span class="wordmark__c">()</span>
+      </h1>
+
+      <p class="readout" aria-hidden="true">
+        <span class="readout__label">tick</span>
+        <!-- Plausible resting value, not zero: with JS off this is what the
+             visitor sees, and a counter reading 0000000 looks broken. -->
+        <span class="readout__value" id="tick-value">0108540</span>
+      </p>
+
+      <p class="hero__line">
+        Spatial computing, digital twins and 3D visualisation for public sector
+        and enterprise programmes.
+      </p>
+
+      <p class="scrollcue" aria-hidden="true"><span>scroll</span></p>
+    </div>
+  </header>
+
+  <main id="main">
+
+    <section class="doc" aria-labelledby="work-h">
+      <div class="wrap">
+        <h2 class="label" id="work-h">What we do</h2>
+
+        <div class="caps">
+          <article class="cap reveal">
+            <h3 class="cap__title">Digital twins</h3>
+            <p>
+              Simulation and synchronised virtual models of physical assets,
+              environments and systems. Usually the visualisation and simulation
+              layer of a much larger programme.
+            </p>
+          </article>
+
+          <article class="cap reveal">
+            <h3 class="cap__title">Spatial computing</h3>
+            <p>
+              Immersive and 3D interfaces, real-time rendering, geospatial
+              visualisation. Web, desktop or headset, depending on where the work
+              needs to land.
+            </p>
+          </article>
+
+          <article class="cap reveal">
+            <h3 class="cap__title">Decision support</h3>
+            <p>
+              Turning complex, multi-source data into interfaces people can reason
+              with: dashboards, maps, scenario tools.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="doc doc--tail" aria-labelledby="how-h">
+      <div class="wrap">
+        <h2 class="label" id="how-h">How we work</h2>
+        <p class="lede reveal">
+          Worldtick works as a specialist partner within larger delivery teams —
+          bringing depth in the visualisation and simulation layer to programmes
+          led by systems integrators and prime contractors.
+        </p>
+      </div>
+    </section>
+
+    <section class="viewport contact" aria-labelledby="contact-h">
+      <div class="wrap">
+        <h2 class="label label--dark" id="contact-h">Contact</h2>
+        <a class="mailto" href="mailto:enquiries@worldtick.co.uk">enquiries@worldtick.co.uk</a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="viewport foot">
+    <div class="wrap">
+      <p>
+        <strong>Worldtick Ltd</strong> — registered in England and Wales.<br>
+        <!-- TODO before launch: replace both placeholders with the real values. -->
+        Company number <span class="todo">[COMPANY NUMBER]</span>.<br>
+        Registered office: <span class="todo">[REGISTERED OFFICE ADDRESS]</span>.
+      </p>
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>

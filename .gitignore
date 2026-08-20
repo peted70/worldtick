@@ -1,0 +1,6 @@
+# Local verification output — regenerate with `node tools/verify.mjs`
+tools/_shots/
+
+# Internal working material. Deliberately not published: this is a public
+# repo and the brief is not part of the site.
+specs/

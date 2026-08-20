@@ -1,0 +1,56 @@
+<!doctype html>
+<!-- Offline diagnostic harness. Not deployed, not linked from the site.
+     Boots the stage in isolation and reports the outcome as text, so
+     `chrome --headless --dump-dom` can be used to check for shader and API
+     errors without a visible browser. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>worldtick probe</title>
+<script type="importmap">
+{"imports":{"three/webgpu":"../vendor/three.webgpu.min.js","three/tsl":"../vendor/three.tsl.min.js"}}
+</script>
+<style>
+  html,body{margin:0;background:#0C1116;color:#B8C0C6;font:13px ui-monospace,monospace}
+  #out{position:fixed;top:0;left:0;padding:8px;white-space:pre-wrap;z-index:5}
+  .stage{position:fixed;inset:0}
+  .stage__canvas{position:absolute;inset:0;width:100%;height:100%}
+  .stage__scrim{display:none}
+</style>
+</head>
+<body>
+<div class="stage"><canvas class="stage__canvas" id="stage-canvas"></canvas><div class="stage__scrim"></div></div>
+<div class="hero" style="position:fixed;inset:0"></div>
+<pre id="out">boot</pre>
+<script type="module">
+const out = document.getElementById('out');
+const log = (m) => { out.textContent += '\n' + m; };
+
+window.addEventListener('error', (e) => log('ERROR ' + (e.message || e.error)));
+window.addEventListener('unhandledrejection', (e) => log('REJECT ' + (e.reason && e.reason.message || e.reason)));
+
+try {
+  log('gpu=' + !!navigator.gpu + ' webgl2=' + !!document.createElement('canvas').getContext('webgl2'));
+
+  const { createTicker } = await import('../js/tick.js');
+  const { createStage } = await import('../js/stage.js');
+  log('modules ok');
+
+  const ticker = createTicker({});
+  const stage = await createStage({
+    root: document.querySelector('.stage'),
+    canvas: document.getElementById('stage-canvas'),
+    hero: document.querySelector('.hero'),
+    ticker,
+    reducedMotion: false,
+  });
+  log('stage created; backend=' + (stage.renderer.backend?.constructor?.name || '?'));
+
+  ticker.start();
+  setTimeout(() => log('RESULT ok tick=' + ticker.tick), 2500);
+} catch (err) {
+  log('FATAL ' + (err && err.stack || err));
+}
+</script>
+</body>
+</html>

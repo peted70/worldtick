@@ -1,0 +1,328 @@
+/* Worldtick Ltd — worldtick.co.uk
+   Mobile-first, designed at 390px. No build step: edit this file directly. */
+
+/* ---------- Fonts ---------- */
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('../fonts/ibm-plex-mono-400.woff2') format('woff2');
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('../fonts/ibm-plex-mono-500.woff2') format('woff2');
+  font-weight: 500; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('../fonts/ibm-plex-sans-400.woff2') format('woff2');
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('../fonts/ibm-plex-sans-600.woff2') format('woff2');
+  font-weight: 600; font-style: normal; font-display: swap;
+}
+
+/* ---------- Tokens ----------
+   Two deviations from the spec's table, both for contrast. See README. */
+
+:root {
+  --viewport:      #0C1116;
+  --viewport-grid: #1A2129;
+  --paper:         #F2F4F3;
+  --ink:           #101418;
+  --slate:         #5A6167;  /* spec had #697077 (4.58:1 on paper); this is 5.65:1 */
+  --rule:          #D6DAD8;
+  --signal:        #0B5FFF;
+  --signal-dim:    #3D6E9E;
+
+  /* Added: the spec's palette assumes a light document, but the hero and
+     contact sections put the same roles on --viewport. */
+  --paper-dim:     #B8C0C6;  /* body text on viewport — 10.3:1 */
+  --slate-dark:    #7E878E;  /* secondary text on viewport — 5.19:1 */
+  --signal-bright: #4D8BFF;  /* accent on viewport — 5.83:1 */
+
+  --mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --gutter: 1.25rem;
+  --measure: 34rem;
+}
+
+/* ---------- Reset / base ---------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--viewport);
+  color: var(--paper);
+  font-family: var(--sans);
+  font-size: 1.0625rem;   /* 17px */
+  line-height: 1.6;
+  font-synthesis-weight: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, p { margin: 0; }
+img { max-width: 100%; display: block; }
+
+:focus-visible {
+  outline: 2px solid var(--signal-bright);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+.doc :focus-visible { outline-color: var(--signal); }
+
+.skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 10;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  padding: 0.75rem 1rem;
+  text-decoration: none;
+}
+.skip:focus { left: 0; }
+
+.wrap {
+  width: min(100% - (var(--gutter) * 2), 66rem);
+  margin-inline: auto;
+}
+
+/* ---------- The persistent 3D stage ----------
+   Fixed behind everything. Opaque .doc sections scroll over it, so the
+   scene is visible in the hero and again behind contact and the footer. */
+
+.stage {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: var(--viewport);
+  pointer-events: none;
+}
+.stage__poster,
+.stage__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.stage__poster { object-fit: cover; }
+
+.stage__canvas {
+  opacity: 0;
+  transition: opacity 600ms ease;
+}
+/* Set by js/stage.js once the first frame has actually rendered, so the
+   poster is never swapped out for an empty canvas. */
+.stage.is-live .stage__canvas { opacity: 1; }
+.stage.is-live .stage__poster { opacity: 0; transition: opacity 600ms ease; }
+
+/* Dimmed by scroll position — the hero recedes rather than scrolling away. */
+.stage__scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--viewport);
+  opacity: 0;
+}
+
+.page { position: relative; z-index: 1; }
+
+/* Transparent sections let the stage through. */
+.viewport { background: transparent; color: var(--paper); }
+
+/* ---------- Hero ---------- */
+
+.hero__inner {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding-block: 5rem 1.5rem;
+}
+
+.wordmark {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: clamp(2.125rem, 11.5vw, 4.5rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
+}
+.wordmark__a { color: var(--paper); }
+.wordmark__b { color: var(--signal-bright); }
+.wordmark__c { color: var(--slate-dark); }
+
+.readout {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  color: var(--slate-dark);
+  margin-top: 1.125rem;
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+.readout__label::after { content: ''; }
+.readout__value { color: var(--signal-bright); }
+
+.hero__line {
+  margin-top: 1.75rem;
+  max-width: 26ch;
+  color: var(--paper-dim);
+  text-wrap: pretty;
+}
+
+.scrollcue {
+  margin-top: 3rem;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--slate-dark);
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+.scrollcue::after {
+  content: '';
+  width: 1px;
+  height: 2rem;
+  background: linear-gradient(var(--slate-dark), transparent);
+}
+
+/* ---------- Document sections ---------- */
+
+.doc {
+  background: var(--paper);
+  color: var(--ink);
+  padding-block: 4.5rem;
+}
+.doc--tail { padding-top: 0; }
+.doc--tail .wrap { border-top: 1px solid var(--rule); padding-top: 4.5rem; }
+
+.label {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--slate);
+  margin-bottom: 2.5rem;
+}
+.label--dark { color: var(--slate-dark); }
+
+.caps { display: grid; gap: 2.75rem; }
+
+.cap__title {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 1.0625rem;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin-bottom: 0.625rem;
+}
+.cap p { color: var(--slate); max-width: var(--measure); text-wrap: pretty; }
+
+.lede {
+  font-size: 1.1875rem;
+  max-width: var(--measure);
+  color: var(--ink);
+  text-wrap: pretty;
+}
+
+/* ---------- Contact ---------- */
+
+.contact { padding-block: 5rem; }
+
+.mailto {
+  display: inline-block;
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: clamp(1.0625rem, 5vw, 2rem);
+  letter-spacing: -0.02em;
+  color: var(--signal-bright);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  /* Keeps the tap target well over 44px at every size. */
+  padding-block: 0.625rem;
+  background-image: linear-gradient(var(--signal-bright), var(--signal-bright));
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0 1px;
+  transition: background-size 260ms ease;
+}
+.mailto:hover, .mailto:focus-visible { background-size: 100% 1px; }
+/* Touch has no hover, so give it a permanent solid state instead. */
+@media (hover: none) {
+  .mailto { background-size: 100% 1px; }
+}
+
+/* ---------- Footer ---------- */
+
+.foot {
+  padding-block: 0 3.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  color: var(--slate-dark);
+}
+.foot strong { font-weight: 600; color: var(--paper-dim); }
+.todo { border-bottom: 1px dashed currentColor; }
+
+/* ---------- Scroll reveals ----------
+   Only hidden when JS is running, so the no-JS page is complete. */
+
+.js .reveal {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+.js .reveal.is-in { opacity: 1; transform: none; }
+.js .caps .reveal:nth-child(2) { transition-delay: 60ms; }
+.js .caps .reveal:nth-child(3) { transition-delay: 120ms; }
+
+/* ---------- Wider viewports ---------- */
+
+@media (min-width: 48rem) {
+  :root { --gutter: 2.5rem; }
+  body { font-size: 1.125rem; }
+  .caps { grid-template-columns: repeat(3, 1fr); gap: 2.5rem; }
+  .cap p { font-size: 1rem; }
+  .doc { padding-block: 7rem; }
+  .doc--tail { padding-top: 0; }
+  .doc--tail .wrap { padding-top: 7rem; }
+  .contact { padding-block: 8rem; }
+  .hero__inner { padding-block: 6rem 2.5rem; }
+  .lede { font-size: 1.375rem; }
+}
+
+@media (min-width: 64rem) {
+  .hero__line { font-size: 1.25rem; max-width: 32ch; }
+}
+
+/* ---------- Reduced motion ----------
+   Everything becomes an instant state change. The stage renders one
+   resolved static frame; js/tick.js never starts the counter. */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .js .reveal { opacity: 1; transform: none; }
+}
