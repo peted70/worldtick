@@ -19,7 +19,7 @@
 
 import * as THREE from 'three/webgpu';
 import {
-  attribute, uniform, float, vec3, vec4, mix, positionGeometry, positionView,
+  attribute, uniform, float, vec3, vec4, mix, positionGeometry, positionView, uv,
 } from 'three/tsl';
 
 const COLOR = {
@@ -29,6 +29,8 @@ const COLOR = {
   dim:      new THREE.Color('#3D6E9E'),
   hot:      new THREE.Color('#DCE6F2'),
   head:     new THREE.Color('#F4F8FF'),
+  moon:     new THREE.Color('#D7E1EE'),
+  meteor:   new THREE.Color('#EAF1FF'),
   // Heading is conveyed by brightness alone — bright pair leading, dim pair
   // trailing. Keeps the page to one accent, which red tail lights broke.
   tail:     new THREE.Color('#7C93B5'),
@@ -52,9 +54,17 @@ const FADE_FLOOR = 0.3;
  * makes the traffic legible as traffic rather than as drifting sparks. */
 const STREET_HALF = 2.6;   // half-width of the clear corridor
 const LANE_OFFSET = 0.95;  // lanes either side of the centreline
-const AVENUES = [0, -10.5, 10.5];
-const STREET_EXTENT = 17;
+const OUTER_AVENUE = 13.5;
+const AVENUES = [0, -OUTER_AVENUE, OUTER_AVENUE];
+const STREET_EXTENT = 20;
 const ROAD_Y = 0.12;
+
+/* Buildings live strictly between the central and outer avenues. Both bounds
+ * matter: only constraining the inner edge let large masses run out over the
+ * outer carriageway, which put buildings on the road. */
+const PAVEMENT = 0.7;
+const BLOCK_INNER = STREET_HALF + PAVEMENT;
+const BLOCK_OUTER = OUTER_AVENUE - STREET_HALF - PAVEMENT;
 
 /* A vehicle is four lamps, not one point: two headlights forward, two tail
  * lights back. At this scale that is what makes a moving dot read as a car
@@ -158,8 +168,13 @@ export function createCloudScene({ quality = 'high' } = {}) {
   const grid = buildGrid(uFadeNear, uFadeFar);
   group.add(grid);
 
+  // Not added to `group` — the stage parents this to the camera. See buildSky.
+  const sky = buildSky({ uTick, uPixelScale });
+
   return {
     object3D: group,
+    sky: sky.group,
+    placeSky: sky.place,
     resolveTicks: RESOLVE_TICKS,
 
     setTick(t) { uTick.value = t; },
@@ -181,10 +196,166 @@ export function createCloudScene({ quality = 'high' } = {}) {
       geometry.dispose();
       material.dispose();
       traffic.dispose();
+      sky.dispose();
       grid.geometry.dispose();
       grid.material.dispose();
     },
   };
+}
+
+/* ---------- Sky ----------
+ *
+ * The moon and the meteors live in a group parented to the camera, so their
+ * coordinates are camera-relative and they always sit in the upper part of
+ * frame. That is deliberate rather than lazy: the camera looks *down* at the
+ * city, so the top edge of the frame is still below the horizontal, and
+ * anything placed high in world space is off-screen entirely. Anchoring to
+ * the view also happens to be right for a moon, which is effectively at
+ * infinity and should not parallax.
+ */
+
+const SKY_Z = -170;          // distance in front of the camera
+const METEOR_COUNT = 4;
+const METEOR_TRAIL = 72;   // dense enough to read as a continuous streak
+/* How far the tail lags the head, as a fraction of the streak's travel. The
+ * trail attribute is normalised 0..1, so this is the total span — not a
+ * per-point step. */
+const METEOR_TRAIL_SPAN = 0.3;
+/* Fraction of each meteor's cycle that it is actually visible for. Small, so
+ * they stay an occasional event rather than a weather condition. */
+const METEOR_ACTIVE = 0.05;
+
+function buildSky({ uTick, uPixelScale }) {
+  const group = new THREE.Group();
+
+  // Half-extents of the visible sky plane at SKY_Z, in world units. Set from
+  // the camera's aspect and field of view on every resize.
+  const uSkyW = uniform(70);
+  const uSkyH = uniform(70);
+
+  const moon = buildMoon();
+  group.add(moon);
+
+  const meteors = buildMeteors({ uTick, uPixelScale, uSkyW, uSkyH });
+  group.add(meteors.object);
+
+  return {
+    group,
+    /* Called on resize, and again on each camera cut so the moon shifts
+     * position — a cut that left the sky identical would not read as a
+     * change of vantage. */
+    place({ aspect, vFov, variant = 0.5 }) {
+      const halfH = Math.abs(SKY_Z) * Math.tan(vFov / 2);
+      uSkyH.value = halfH;
+      uSkyW.value = halfH * aspect;
+
+      // Upper third, and never centred — a moon dead ahead looks like a bug.
+      const side = variant < 0.5 ? -1 : 1;
+      const t = (variant * 2) % 1;
+      moon.position.set(
+        side * uSkyW.value * (0.34 + t * 0.42),
+        halfH * (0.46 + t * 0.26),
+        SKY_Z,
+      );
+      const size = halfH * 0.16;
+      moon.scale.set(size, size, 1);
+    },
+    dispose() {
+      moon.material.dispose();
+      meteors.dispose();
+    },
+  };
+}
+
+function buildMoon() {
+  const material = new THREE.SpriteNodeMaterial({ transparent: true, depthWrite: false });
+
+  // A disc plus a faint halo, drawn from the sprite's own UVs — no texture,
+  // so it stays crisp at any size and adds nothing to the download.
+  const d = uv().sub(0.5).length();
+  const disc = d.smoothstep(0.30, 0.275);
+  const halo = d.smoothstep(0.60, 0.30).mul(0.13);
+
+  material.colorNode = vec4(vec3(...COLOR.moon.toArray()), disc.add(halo).clamp(0, 1));
+
+  const sprite = new THREE.Sprite(material);
+  sprite.renderOrder = -1;
+  return sprite;
+}
+
+function buildMeteors({ uTick, uPixelScale, uSkyW, uSkyH }) {
+  const count = METEOR_COUNT * METEOR_TRAIL;
+
+  const a = new Float32Array(count * 3);
+  const b = new Float32Array(count * 3);
+  const trail = new Float32Array(count);
+  const speed = new Float32Array(count);
+  const phase = new Float32Array(count);
+
+  let p = 0;
+  for (let m = 0; m < METEOR_COUNT; m++) {
+    // Normalised sky coordinates; scaled to world units in the shader so a
+    // resize does not mean rebuilding the buffers.
+    const x0 = -1.15 + Math.random() * 1.5;
+    const y0 = 0.55 + Math.random() * 0.5;
+    const dx = 0.55 + Math.random() * 0.95;
+    const dy = -(0.22 + Math.random() * 0.34);
+
+    // One cycle every 25–70 seconds, visible for 5% of it.
+    const s = 1 / (1500 + Math.random() * 2700);
+    const ph = Math.random();
+
+    for (let i = 0; i < METEOR_TRAIL; i++) {
+      const o = p * 3;
+      a[o] = x0; a[o + 1] = y0; a[o + 2] = SKY_Z;
+      b[o] = x0 + dx; b[o + 1] = y0 + dy; b[o + 2] = SKY_Z;
+      trail[p] = i / (METEOR_TRAIL - 1);
+      speed[p] = s;
+      phase[p] = ph;
+      p++;
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(a, 3));
+  geometry.setAttribute('mA', new THREE.BufferAttribute(a, 3));
+  geometry.setAttribute('mB', new THREE.BufferAttribute(b, 3));
+  geometry.setAttribute('mTrail', new THREE.BufferAttribute(trail, 1));
+  geometry.setAttribute('mSpeed', new THREE.BufferAttribute(speed, 1));
+  geometry.setAttribute('mPhase', new THREE.BufferAttribute(phase, 1));
+
+  const mTrail = attribute('mTrail', 'float');
+
+  const cycle = uTick.mul(attribute('mSpeed', 'float')).add(attribute('mPhase', 'float')).fract();
+  // Progress through the streak. Each trail point lags the head, so the tail
+  // is still entering as the head is leaving.
+  const prog = cycle.div(METEOR_ACTIVE).sub(mTrail.mul(METEOR_TRAIL_SPAN));
+  const clamped = prog.clamp(0, 1);
+
+  const material = new THREE.PointsNodeMaterial({ transparent: true, depthWrite: false });
+  material.positionNode = mix(attribute('mA', 'vec3'), attribute('mB', 'vec3'), clamped)
+    .mul(vec3(uSkyW, uSkyH, float(1)));
+
+  const depth = positionView.z.negate().max(float(0.001));
+  // Head largest, tapering back — a uniform-width streak looks like a scratch.
+  material.sizeNode = uPixelScale.mul(0.62).div(depth)
+    .mul(float(1).sub(mTrail.mul(0.5))).clamp(0.8, 3.6);
+
+  // Fade in at the head, out at the end, and taper along the trail.
+  const enter = prog.smoothstep(-0.03, 0.04);
+  const leave = float(1).sub(prog.smoothstep(0.72, 1.0));
+  const taper = float(1).sub(mTrail).pow(1.6);
+
+  material.colorNode = vec4(
+    vec3(...COLOR.meteor.toArray()),
+    enter.mul(leave).mul(taper),
+  );
+
+  const object = new THREE.Points(geometry, material);
+  object.frustumCulled = false;
+  object.renderOrder = -1;
+
+  return { object, dispose() { geometry.dispose(); material.dispose(); } };
 }
 
 /* ---------- Traffic ---------- */
@@ -380,16 +551,27 @@ const GROUND_RADIUS = 34;
  * than four similar slabs. */
 function generateMasses(rand) {
   const quads = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
-  const inset = STREET_HALF + 0.7;
+  // Widest footprint that still leaves the block usable on both sides.
+  const maxSpan = BLOCK_OUTER - BLOCK_INNER;
+
+  /* Pick a footprint, then place it somewhere it definitely fits, rather than
+   * placing it and hoping. This is what guarantees no building ever sits on a
+   * carriageway. */
+  const axis = (sign, size) => {
+    const lo = BLOCK_INNER + size / 2;
+    const hi = BLOCK_OUTER - size / 2;
+    return sign * (lo + (hi - lo) * rand());
+  };
 
   return quads.map(([sx, sz]) => {
-    const w = 3.6 + rand() * 3.4;
-    const d = 3.6 + rand() * 3.4;
+    const w = 3.4 + rand() * Math.min(3.2, maxSpan - 3.4);
+    const d = 3.4 + rand() * Math.min(3.2, maxSpan - 3.4);
     const h = 4.0 + rand() ** 1.8 * 8.6;
-    const x = sx * (inset + w / 2 + rand() * 1.6);
-    const z = sz * (inset + d / 2 + rand() * 1.6);
     // Points are allocated by surface area, so big towers don't come out sparse.
-    return { x, z, w, d, h, weight: 2 * (w + d) * h + w * d };
+    return {
+      x: axis(sx, w), z: axis(sz, d), w, d, h,
+      weight: 2 * (w + d) * h + w * d,
+    };
   });
 }
 
@@ -500,9 +682,11 @@ function buildGrid(uFadeNear, uFadeFar) {
 
   const m = new THREE.LineBasicNodeMaterial({ transparent: true, depthWrite: false });
   const d = positionView.z.negate().max(float(0.001));
+  // No alpha floor. A constant minimum kept distant lines visible all the way
+  // to the horizon, where they drew straight across the moon.
   m.colorNode = vec4(
     vec3(...COLOR.grid.toArray()),
-    d.smoothstep(uFadeFar, uFadeNear).mul(0.9).add(0.25),
+    d.smoothstep(uFadeFar.mul(1.15), uFadeNear.mul(0.5)).mul(0.95),
   );
 
   const lines = new THREE.LineSegments(g, m);

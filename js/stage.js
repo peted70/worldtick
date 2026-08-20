@@ -33,6 +33,11 @@ export async function createStage({ root, canvas, hero, ticker, reducedMotion })
   const cloud = createCloudScene({ quality: narrow ? 'low' : 'high' });
   scene.add(cloud.object3D);
 
+  // The sky rides with the camera — see buildSky in scene-cloud.js for why.
+  // The camera has to be in the scene graph for its children to render.
+  camera.add(cloud.sky);
+  scene.add(camera);
+
   /* ---- input state ---- */
 
   let pointerX = 0, pointerY = 0;      // target, -1..1
@@ -41,6 +46,12 @@ export async function createStage({ root, canvas, hero, ticker, reducedMotion })
   let scroll01 = 0, smoothScroll = 0;
   let baseRadius = CAMERA.minRadius;
   let resolveEpoch = 0;         // tick at which the current resolve started
+
+  // Camera cuts: an occasional hard switch to another vantage, like changing
+  // feed on a bank of monitors. A cut, not a fly-through — a smooth traversal
+  // would pull focus from the page for several seconds.
+  let cutTheta = 0, cutPhi = 0, cutRadius = 1, skyVariant = 0.5;
+  let nextCut = 0;
 
   const scrim = root.querySelector('.stage__scrim');
 
@@ -64,6 +75,7 @@ export async function createStage({ root, canvas, hero, ticker, reducedMotion })
     // apparent size across viewport sizes and pixel ratios.
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     cloud.setPixelScale((h * dpr * 0.5) / Math.tan((FOV * Math.PI) / 360));
+    cloud.placeSky({ aspect: camera.aspect, vFov: (FOV * Math.PI) / 180, variant: skyVariant });
 
     if (reducedMotion) renderStatic();
   }
@@ -76,9 +88,10 @@ export async function createStage({ root, canvas, hero, ticker, reducedMotion })
   }
 
   function placeCamera(tick) {
-    const theta = CAMERA.theta + tick * DRIFT_PER_TICK + smoothX * POINTER_THETA + dragTheta;
-    const phi = CAMERA.phi - smoothY * POINTER_PHI - smoothScroll * 0.10;
-    const radius = baseRadius + smoothScroll * SCROLL_PULLBACK;
+    const theta = CAMERA.theta + cutTheta + tick * DRIFT_PER_TICK
+      + smoothX * POINTER_THETA + dragTheta;
+    const phi = CAMERA.phi + cutPhi - smoothY * POINTER_PHI - smoothScroll * 0.10;
+    const radius = baseRadius * cutRadius + smoothScroll * SCROLL_PULLBACK;
 
     camera.position.set(
       LOOK_AT.x + radius * Math.sin(phi) * Math.sin(theta),
@@ -95,6 +108,27 @@ export async function createStage({ root, canvas, hero, ticker, reducedMotion })
     cloud.setResolveTick(RESOLVE_TICKS + 200);
     placeCamera(0);
     renderer.render(scene, camera);
+  }
+
+  function scheduleCut(tick) {
+    nextCut = tick + 1000 + Math.random() * 1600;   // every ~17–43 seconds
+  }
+
+  function cut() {
+    // Always a decent swing, never a full 180 — landing exactly opposite makes
+    // it ambiguous whether the camera moved or the city did.
+    const swing = 0.75 + Math.random() * 1.9;
+    cutTheta += (Math.random() < 0.5 ? -swing : swing);
+    cutPhi = (Math.random() - 0.5) * 0.24;
+    cutRadius = 0.82 + Math.random() * 0.42;
+
+    // Drop any orbit nudge, or the new shot inherits a drift the viewer never
+    // asked for.
+    dragTheta = 0;
+    dragVel = 0;
+
+    skyVariant = Math.random();
+    cloud.placeSky({ aspect: camera.aspect, vFov: (FOV * Math.PI) / 180, variant: skyVariant });
   }
 
   /* New massing, replayed from scattered. Traffic is on the monotonic clock,
@@ -160,6 +194,7 @@ export async function createStage({ root, canvas, hero, ticker, reducedMotion })
   } else {
     resize();
     readScroll();
+    scheduleCut(ticker.tick);
 
     ticker.onStep((tick) => {
       // Fixed-step, so these easing constants behave identically everywhere.
@@ -170,6 +205,13 @@ export async function createStage({ root, canvas, hero, ticker, reducedMotion })
       dragTheta += dragVel;
       dragVel *= 0.94;          // inertia
       dragTheta *= 0.97;        // ease back to rest
+
+      // Only cut while the hero is actually on screen, and never during the
+      // resolve — cutting mid-convergence wastes the one moment worth watching.
+      if (tick > nextCut) {
+        if (smoothScroll < 0.35 && tick - resolveEpoch > RESOLVE_TICKS + 240) cut();
+        scheduleCut(tick);
+      }
     });
 
     ticker.onFrame((tick) => {

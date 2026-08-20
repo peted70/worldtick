@@ -120,8 +120,41 @@ randomness, and removing any one of them brings the regularity back:
 
 Vehicle lengths vary too, so a long one reads as a van rather than a car.
 
+### Camera cuts
+
+Every 17–43 seconds the camera hard-cuts to another vantage — a switch of feed
+on a bank of monitors, not a fly-through. A smooth traversal would pull focus
+from the page for several seconds; a cut is over instantly.
+
+Cuts are suppressed while the document has scrolled over the hero, and during
+the resolve, since cutting mid-convergence throws away the one moment worth
+watching. Each cut also moves the moon, because a cut that left the sky
+identical would not read as a change of vantage.
+
+### The sky
+
+The moon and the meteors are parented to the **camera**, not the world. That
+is deliberate. The camera looks *down* at the city, so the top edge of frame is
+still below the horizontal and anything placed high in world space is off
+screen entirely. Anchoring to the view also happens to be correct for a moon,
+which is effectively at infinity and should not parallax.
+
+The moon is a sprite with no texture — a disc and a faint halo computed from
+the sprite's own UVs, so it stays crisp at any size and costs nothing to
+download.
+
+Meteors are four streaks, each a 72-point trail on the same `fract()` cycle as
+the traffic, visible for only 5% of a 25–70 second cycle. `METEOR_TRAIL_SPAN`
+is the **total** lag of the tail behind the head as a fraction of travel, not a
+per-point step — getting that wrong makes the streak a speck.
+
+Note that the ground grid has **no alpha floor**. It used to, which kept
+distant lines visible right up to the horizon, where they drew straight across
+the moon.
+
 Under `prefers-reduced-motion`, re-run still works — it generates a new block
-and jumps straight to the resolved frame with no animation.
+and jumps straight to the resolved frame with no animation. There are no
+camera cuts and no motion of any kind.
 
 ---
 
