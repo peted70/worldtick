@@ -43,8 +43,12 @@ The page is readable before any of the 3D arrives:
 |---|---|---|
 | 1 | No JS, or no WebGL2/WebGPU | Poster image, full content, static counter |
 | 2 | `prefers-reduced-motion: reduce` | One resolved static frame, frozen counter |
-| 3 | WebGL2 only | Full scene, 22k points, automatic three.js fallback |
-| 4 | WebGPU | Full scene, 64k points |
+| 3 | WebGL2 only | Full scene — three.js falls back automatically |
+| 4 | WebGPU | Full scene |
+
+Point count is chosen by **viewport width, not by backend**: under 500px it
+drops to 34k structure points and 460 vehicles, above it 64k and 950. Both
+backends render whichever they are given.
 
 `js/tick.js` is the spine. It runs a fixed 60Hz accumulator decoupled from
 `requestAnimationFrame`, so a 120Hz display and a struggling phone behave
@@ -145,12 +149,16 @@ to avoid shipping filler.
 GitHub Pages serves `main` from the repository root. `CNAME` holds the custom
 domain and `.nojekyll` stops Jekyll from touching anything.
 
-### DNS at Namecheap
+### DNS at Namecheap — done, recorded for reference
+
+These records are **already in place** and the domain resolves to GitHub. Kept
+here so the setup is reproducible and so a future change can be checked against
+what was intended.
 
 Apex domain, so A records rather than a CNAME. **Verified against GitHub Docs,
 "Managing a custom domain for your GitHub Pages site" — re-check before
-entering these, as GitHub has changed them historically and a stale list fails
-silently.**
+re-entering these, as GitHub has changed them historically and a stale list
+fails silently.**
 
 | Type | Host | Value |
 |---|---|---|
@@ -164,17 +172,19 @@ silently.**
 | AAAA | `@` | `2606:50c0:8003::153` |
 | CNAME | `www` | `peted70.github.io` |
 
-Two things to get right:
+Two things that mattered, and still would if this is ever redone:
 
-- **Remove the existing URL Redirect Record on `@`.** The domain currently
-  parks at `192.64.119.40`; the redirect record conflicts with the A records
-  and fails quietly.
+- **No URL Redirect Record on `@`.** The domain used to park at
+  `192.64.119.40` via one; it conflicts with the A records and fails quietly.
+  It was removed.
 - **Do not touch the MX or email-forwarding records.** They carry
   `worldtick.co.uk` mail, including `enquiries@`, and have nothing to do with
-  Pages. Adding the records above must leave them untouched.
+  Pages.
 
-Enable **Enforce HTTPS** in the repository's Pages settings once the
-certificate provisions — up to 24 hours after DNS propagates.
+**Still outstanding:** tick **Enforce HTTPS** in the repository's Pages
+settings. The checkbox is greyed out until GitHub has issued the certificate,
+which can take up to 24 hours after DNS goes live. Until then the site is
+`http://` only. Check with `curl -sI https://worldtick.co.uk | head -1`.
 
 ---
 
