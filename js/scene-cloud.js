@@ -29,9 +29,9 @@ const COLOR = {
   dim:      new THREE.Color('#3D6E9E'),
   hot:      new THREE.Color('#DCE6F2'),
   head:     new THREE.Color('#F4F8FF'),
-  // The one warm colour on the page. It earns its place: red tail lights are
-  // what tell you which way a vehicle is facing, at a glance, with no legend.
-  tail:     new THREE.Color('#D8402C'),
+  // Heading is conveyed by brightness alone — bright pair leading, dim pair
+  // trailing. Keeps the page to one accent, which red tail lights broke.
+  tail:     new THREE.Color('#7C93B5'),
 };
 
 /* Ease over 90 ticks with up to 30 ticks of stagger — 120 ticks at 60Hz, so
@@ -222,21 +222,19 @@ function buildTraffic({
       a[o] = lane.a[0]; a[o + 1] = lane.a[1]; a[o + 2] = lane.a[2];
       b[o] = lane.b[0]; b[o + 1] = lane.b[1]; b[o + 2] = lane.b[2];
 
-      offset[o]     = fx * lamp.long * HALF_LENGTH + lx * lamp.lat * HALF_TRACK;
+      const halfLen = HALF_LENGTH * v.length;
+      offset[o]     = fx * lamp.long * halfLen + lx * lamp.lat * HALF_TRACK;
       offset[o + 1] = 0;
-      offset[o + 2] = fz * lamp.long * HALF_LENGTH + lz * lamp.lat * HALF_TRACK;
+      offset[o + 2] = fz * lamp.long * halfLen + lz * lamp.lat * HALF_TRACK;
 
       // Every lamp on a vehicle shares its motion, or the car pulls apart.
       speed[p] = v.speed;
       phase[p] = v.phase;
 
-      if (lamp.tail) {
-        // Tail lights are much dimmer than headlights in reality, and a field
-        // of full-brightness red would fight the blue for attention.
-        c.copy(COLOR.tail).lerp(COLOR.viewport, 0.15);
-      } else {
-        c.copy(COLOR.head);
-      }
+      // Well below the headlights: the brightness gap is the only cue for
+      // which way the vehicle is pointing, so it has to be unambiguous.
+      if (lamp.tail) c.copy(COLOR.tail).lerp(COLOR.viewport, 0.42);
+      else c.copy(COLOR.head);
       colour[o] = c.r; colour[o + 1] = c.g; colour[o + 2] = c.b;
       p++;
     }
@@ -309,15 +307,17 @@ function buildLanes() {
     });
   };
 
-  for (const at of AVENUES) {
-    // Ticks to traverse the full lane — roughly 9 to 14 seconds.
-    const zSpeed = 1 / (520 + Math.random() * 300);
-    add([at + LANE_OFFSET, ROAD_Y, -E], [at + LANE_OFFSET, ROAD_Y, E], zSpeed);
-    add([at - LANE_OFFSET, ROAD_Y, E], [at - LANE_OFFSET, ROAD_Y, -E], zSpeed * 1.08);
+  // Base pace per lane, widely spread so no two streets run at the same rate.
+  const pace = () => 1 / (420 + Math.random() ** 1.3 * 700);
 
-    const xSpeed = 1 / (520 + Math.random() * 300);
-    add([-E, ROAD_Y, at - LANE_OFFSET], [E, ROAD_Y, at - LANE_OFFSET], xSpeed);
-    add([E, ROAD_Y, at + LANE_OFFSET], [-E, ROAD_Y, at + LANE_OFFSET], xSpeed * 1.08);
+  for (const at of AVENUES) {
+    // Opposing lanes on the same avenue get independent paces too — tying
+    // them together made both sides move as one block.
+    add([at + LANE_OFFSET, ROAD_Y, -E], [at + LANE_OFFSET, ROAD_Y, E], pace());
+    add([at - LANE_OFFSET, ROAD_Y, E], [at - LANE_OFFSET, ROAD_Y, -E], pace());
+
+    add([-E, ROAD_Y, at - LANE_OFFSET], [E, ROAD_Y, at - LANE_OFFSET], pace());
+    add([E, ROAD_Y, at + LANE_OFFSET], [-E, ROAD_Y, at + LANE_OFFSET], pace());
   }
   return lanes;
 }
@@ -338,17 +338,33 @@ function placeVehicles(lanes, vehicleCount) {
     const centres = Array.from({ length: platoons }, () => Math.random());
 
     for (let i = 0; i < n; i++) {
-      const centre = centres[i % platoons];
-      const spread = 0.04 + Math.random() * 0.07;
-      // Sum of two uniforms — triangular, so vehicles bunch toward the centre
-      // of their platoon rather than spreading evenly across it.
-      const jitter = (Math.random() + Math.random() - 1) * spread;
-      const phase = ((centre + jitter) % 1 + 1) % 1;
+      let phase;
+      if (Math.random() < 0.62) {
+        // In a platoon. Each platoon gets its own spread, so clumps differ in
+        // size instead of all looking like the same blob.
+        const centre = centres[i % platoons];
+        const spread = 0.02 + Math.random() ** 1.6 * 0.14;
+        // Sum of two uniforms — triangular, so vehicles bunch toward the
+        // centre of their platoon rather than spreading evenly across it.
+        const jitter = (Math.random() + Math.random() - 1) * spread;
+        phase = centre + jitter;
+      } else {
+        // Free-running singles between the platoons, which is what breaks up
+        // the "one convoy per street" look.
+        phase = Math.random();
+      }
 
       vehicles.push({
         lane,
-        phase,
-        speed: lane.speed * (0.94 + Math.random() * 0.12),
+        phase: ((phase % 1) + 1) % 1,
+        // Wide, skewed spread rather than a tight band around the lane speed.
+        // This is the change that matters: when every vehicle moves at nearly
+        // the same rate the whole formation is rigid and merely slides along.
+        // Spread them and they drift relative to each other, so gaps open and
+        // close continuously and the pattern never repeats.
+        speed: lane.speed * (0.62 + Math.random() ** 1.4 * 1.05),
+        // Vehicle lengths vary — a long one reads as a van or a bus.
+        length: 0.78 + Math.random() ** 1.5 * 1.15,
       });
     }
   }

@@ -88,22 +88,37 @@ aligned, those offsets are baked into world space on the CPU, so the shader
 only adds a vector. All four lamps share a vehicle's speed and phase; give
 them their own and the car pulls apart.
 
-Red tail lights are the only warm colour on the site, and a deliberate
-departure from the spec's single-accent rule. They earn it: they tell you
-which way a vehicle is facing instantly, with no legend. They are dimmed
-toward the background so they never compete with the blue.
+Heading is conveyed by **brightness alone** — bright pair leading, dim pair
+trailing. An earlier version used red tail lights; that was more literal but
+it put the only warm colour on the site and broke the single-accent rule for
+no real gain. The scene does not need to look photographic.
 
 Two constants govern legibility, and they trade against each other:
 `HALF_LENGTH`/`HALF_TRACK` set how far apart the lamps sit, and the lamp
 `sizeNode` factor sets how big each one is. Push the size up and the four
 merge into one blob at mid distance; push it down and vehicles disappear.
 
-Density is **variable by design.** Each lane draws its own load from a
-low-skewed distribution, so most streets run quiet and one or two run busy,
-and busier lanes run slower. Within a lane, vehicles are clustered into one to
-three platoons rather than spaced evenly — evenly spaced traffic looks like a
-conveyor belt, and clustering is what lets a low vehicle count still read as a
-working street.
+### Why the traffic looks irregular
+
+Getting this to stop looking mechanical took four separate sources of
+randomness, and removing any one of them brings the regularity back:
+
+1. **Per-lane load.** Each lane draws its own traffic level from a low-skewed
+   distribution, so most streets run quiet and one or two run busy.
+2. **Per-lane pace.** Every lane, including the two opposing lanes of the same
+   avenue, gets an independent base speed. Tying opposing lanes together made
+   both sides move as one block.
+3. **Per-vehicle speed — the one that matters most.** Speeds are spread widely
+   around the lane pace rather than sitting in a tight band. When every vehicle
+   moves at nearly the same rate the whole formation is rigid and merely slides
+   along; spread them and they drift relative to each other, so gaps open and
+   close continuously and the pattern never repeats. Vehicles do pass through
+   each other as a result, which is invisible at this scale.
+4. **Mixed spacing.** About 62% of vehicles sit in platoons, each with its own
+   spread; the rest run free at uniform random positions. Pure platoons read as
+   one convoy per street, pure random reads as static noise.
+
+Vehicle lengths vary too, so a long one reads as a van rather than a car.
 
 Under `prefers-reduced-motion`, re-run still works — it generates a new block
 and jumps straight to the resolved frame with no animation.
