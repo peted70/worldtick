@@ -77,7 +77,21 @@ export async function createStage({ root, canvas, hero, ticker, reducedMotion })
     cloud.setPixelScale((h * dpr * 0.5) / Math.tan((FOV * Math.PI) / 360));
     cloud.placeSky({ aspect: camera.aspect, vFov: (FOV * Math.PI) / 180, variant: skyVariant });
 
-    if (reducedMotion) renderStatic();
+    if (reducedMotion) { renderStatic(); return; }
+
+    /* Redraw synchronously, or a drag flickers.
+     *
+     * Setting the canvas's backing-store size clears its drawing buffer, and a
+     * ResizeObserver callback is delivered *after* this frame's animation-frame
+     * callbacks — so the order within one rendering update is: render at the
+     * old size, resize and wipe the buffer, paint. That paints an empty frame,
+     * once per step of the drag. Drawing here fills the buffer again before the
+     * paint that follows.
+     *
+     * Only once live: before that the canvas is still at opacity 0, so a wiped
+     * buffer is invisible anyway, and drawing early would disturb the resolve
+     * epoch that the first real frame is responsible for setting. */
+    if (live) draw(ticker.tick);
   }
 
   function readScroll() {
@@ -99,6 +113,17 @@ export async function createStage({ root, canvas, hero, ticker, reducedMotion })
       LOOK_AT.z + radius * Math.sin(phi) * Math.cos(theta),
     );
     camera.lookAt(LOOK_AT);
+  }
+
+  /* One frame at the current state. Shared by the ticker and by resize(), so a
+   * resize repaints through exactly the same path as an ordinary frame rather
+   * than a second, subtly different one. */
+  function draw(tick) {
+    cloud.setTick(tick);
+    cloud.setResolveTick(tick - resolveEpoch);
+    placeCamera(tick);
+    if (scrim) scrim.style.opacity = String(smoothScroll * MAX_SCRIM);
+    renderer.render(scene, camera);
   }
 
   function renderStatic() {
@@ -224,11 +249,7 @@ export async function createStage({ root, canvas, hero, ticker, reducedMotion })
        * the first load cut straight to the finished city. */
       if (!live) resolveEpoch = tick;
 
-      cloud.setTick(tick);
-      cloud.setResolveTick(tick - resolveEpoch);
-      placeCamera(tick);
-      if (scrim) scrim.style.opacity = String(smoothScroll * MAX_SCRIM);
-      renderer.render(scene, camera);
+      draw(tick);
       markLive();
     });
   }

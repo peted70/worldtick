@@ -249,6 +249,28 @@ Under `prefers-reduced-motion`, re-run still works — it generates a new block
 and jumps straight to the resolved frame with no animation. There are no
 camera cuts and no motion of any kind.
 
+### Resizing
+
+`resize()` ends by drawing a frame **synchronously**, and that is not
+belt-and-braces — without it a drag flickers.
+
+Setting a canvas's backing-store size clears its drawing buffer, and a
+`ResizeObserver` callback is delivered *after* the same rendering update's
+animation-frame callbacks. So the order per frame is: render at the old size,
+resize and wipe the buffer, paint — and the paint lands on an empty buffer,
+once per step of the drag. Waiting for the next `requestAnimationFrame` is
+always one frame too late. Drawing inside the observer callback refills the
+buffer before the paint that follows it.
+
+Measured with `Page.startScreencast`, which reports frames as they are actually
+painted rather than forcing one: dragging 1280px down to 860px produced ten
+frames at roughly a fifth the byte size of their neighbours — a flat fill is
+cheap to compress — and none at all once the redraw was added.
+
+The redraw is skipped until the stage is live, because before that the canvas
+is still at `opacity: 0` and drawing early would set the resolve epoch that the
+first real frame owns.
+
 ---
 
 ## Working on it
