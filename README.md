@@ -1,3 +1,5 @@
+![Worldtick](brand/tick/lockup-1200x300.png)
+
 # worldtick.co.uk
 
 Single-page static site for Worldtick Ltd. Plain HTML, CSS and ES modules —
