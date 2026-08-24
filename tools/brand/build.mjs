@@ -119,7 +119,11 @@ const RASTERS = [
   // Graphics. Big enough to carry the wordmark, so they get one.
   { file: 'og-1200x630.png',          asset: 'og',              w: 1200, h: 630 },
   { file: 'x-banner-1500x500.png',    asset: 'x-banner',        w: 1500, h: 500 },
-  { file: 'linkedin-1128x191.png',    asset: 'linkedin-banner', w: 1128, h: 191 },
+  // 1512x256 is LinkedIn's stated minimum *and* recommended size for a Page
+  // cover. The old 1128x191 was the long-standing spec and is the same 5.906:1
+  // aspect, but it now falls under the minimum and the upload is rejected
+  // outright — so this has to be regenerated, not rescaled on upload.
+  { file: 'linkedin-1512x256.png',    asset: 'linkedin-banner', w: 1512, h: 256 },
   { file: 'lockup-1200x300.png',      asset: 'lockup',          w: 1200, h: 300 },
 
   // Proof sheet, for reviewing the set. Not for use.

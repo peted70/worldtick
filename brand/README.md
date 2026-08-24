@@ -41,11 +41,29 @@ hairline grid and a single cool bloom, matching the live hero.
 | ---- | ---- | --- |
 | `og-1200x630.png` | 1200×630 | Open Graph / Twitter `summary_large_image` |
 | `x-banner-1500x500.png` | 1500×500 | X header. Centred, clear of the avatar and the mobile crop |
-| `linkedin-1128x191.png` | 1128×191 | LinkedIn page banner. Right-weighted, clear of the page logo |
+| `linkedin-1512x256.png` | 1512×256 | LinkedIn page cover. Right-weighted, clear of the page logo |
 | `lockup-1200x300.png` | 1200×300 | mark plus wordmark, for slides and documents |
 | `lockup.svg` | vector | the same lockup. Text stays live, so it needs IBM Plex Mono to be exact — use the PNG where you cannot guarantee the font |
 | `avatar-512.png` | 512 | social profile picture. Square file, safe under a circular crop |
 | `sheet.png` | — | proof sheet of the whole set. For review, not for use |
+
+## Sizes are the platforms', not ours
+
+`linkedin-1512x256.png` was `1128x191` — the spec LinkedIn published for years.
+LinkedIn now states 1512×256 as both the minimum *and* the recommended size,
+and anything under the minimum is rejected on upload with no explanation of
+which rule it broke. The aspect is unchanged at 5.906:1, so it was a pure
+rescale rather than a redesign.
+
+The compositions in `render.html` are laid out in **fixed pixels against a
+fixed canvas**. Changing a size in the `RASTERS` table therefore is not enough
+on its own: the type and spacing keep their old physical size, shrink against
+the larger frame and slide toward whichever corner the composition justifies
+to. Scale the block's rules by the same factor as the canvas.
+
+Current published minimums, worth re-checking before regenerating: page cover
+1512×256, page logo 268×268 minimum and 400×400 recommended, both PNG or JPEG
+under 3MB.
 
 ## Where the mark appears on the site
 

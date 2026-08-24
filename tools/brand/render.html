@@ -104,15 +104,20 @@
   .banner .wordmark { font-size: 88px; }
   .banner .strap { font-size: 25px; text-align: center; margin-top: 24px; max-width: 900px; }
 
-  /* ---------- linkedin 1128x191 ---------- */
-  /* Right-weighted: a company page drops its logo over the bottom-left corner. */
-  .li { --cell: 32px; --bloom-x: 78%; --bloom-y: 50%;
+  /* ---------- linkedin 1512x256 ---------- */
+  /* Right-weighted: a company page drops its logo over the bottom-left corner.
+     Everything here is fixed px against a fixed canvas, so if the canvas size
+     changes these all have to move with it — otherwise the content keeps its
+     old physical size, shrinks against the frame and drifts right into the
+     corner. Scaled 1.34x when LinkedIn's minimum took the canvas from
+     1128x191 to 1512x256 (same 5.906:1 aspect, so it is a pure scale). */
+  .li { --cell: 43px; --bloom-x: 78%; --bloom-y: 50%;
     flex-direction: row; align-items: center; justify-content: flex-end;
-    gap: 26px; padding: 0 56px; }
-  .li .mark { width: 62px; height: 62px; }
-  .li .wordmark { font-size: 54px; }
-  .li .strap { font-size: 17px; max-width: 300px; border-left: 1px solid #232C36;
-               padding-left: 26px; }
+    gap: 35px; padding: 0 75px; }
+  .li .mark { width: 83px; height: 83px; }
+  .li .wordmark { font-size: 72px; }
+  .li .strap { font-size: 23px; max-width: 402px; border-left: 1px solid #232C36;
+               padding-left: 35px; }
 
   /* ---------- lockup 1200x300 ---------- */
   .lockup { --cell: 40px; --bloom-x: 50%; --bloom-y: 50%;
