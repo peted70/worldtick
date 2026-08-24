@@ -333,6 +333,7 @@ html.will-render .rerun[hidden] { display: block; visibility: hidden; }
 .fig__pulse--ray  { animation: fig-ray 4.6s ease-in-out infinite; }
 .fig__pulse--scan  { animation: fig-scan 5.2s ease-in-out infinite; }
 .fig__pulse--layer { animation: fig-layer 6.1s ease-in-out infinite; }
+.fig__pulse--route { animation: fig-route 3.9s ease-in-out infinite; }
 
 .how { display: grid; gap: 2.75rem; }
 .fig--how { margin-bottom: 0; }
@@ -360,6 +361,14 @@ html.will-render .rerun[hidden] { display: block; visibility: hidden; }
   10%      { opacity: 1; }
   90%      { opacity: 1; }
   100%     { transform: translateX(252px); opacity: 0; }
+}
+/* Runs only as far as the decision point, not the whole way across: the figure
+   is about choosing the route, so the travel stops where the choice is made. */
+@keyframes fig-route {
+  0%, 7%   { transform: translateX(0); opacity: 0; }
+  15%      { opacity: 1; }
+  85%      { opacity: 1; }
+  100%     { transform: translateX(98px); opacity: 0; }
 }
 
 .cap__title {
@@ -448,7 +457,9 @@ html.will-render .rerun[hidden] { display: block; visibility: hidden; }
 @media (min-width: 48rem) {
   :root { --gutter: 2.5rem; }
   body { font-size: 1.125rem; }
-  .caps { grid-template-columns: repeat(3, 1fr); gap: 2.5rem; }
+  /* Two up, not four: at four the columns are too narrow for the figures to
+     read as drawings, and the text falls to three or four words a line. */
+  .caps { grid-template-columns: repeat(2, 1fr); gap: 3.25rem 2.5rem; }
   .cap p { font-size: 1rem; }
   .doc { padding-block: 7rem; }
   .doc--tail { padding-top: 0; }

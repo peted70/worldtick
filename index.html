@@ -123,6 +123,34 @@
 
         <div class="caps">
           <article class="cap reveal">
+            <!-- Candidate routes off one decision point: the one worth taking
+                 picked out, the ones that are not ruled through. -->
+            <svg class="fig" viewBox="0 0 320 150" aria-hidden="true" focusable="false">
+              <rect class="fig__grid" width="320" height="150" fill="url(#graph)"/>
+
+              <path class="fig__ink draw" pathLength="1" d="M14 75H112"/>
+              <circle class="fig__dot" cx="118" cy="75" r="4.2"/>
+
+              <path class="fig__rule draw" pathLength="1" style="--d:120ms" d="M126 75L186 42H244"/>
+              <path class="fig__rule draw" pathLength="1" style="--d:200ms" d="M126 75L186 108H244"/>
+
+              <path class="fig__signal draw" pathLength="1" style="--d:320ms" d="M126 75H286"/>
+              <path class="fig__ink draw" pathLength="1" style="--d:460ms" d="M292 58H300V92H292"/>
+
+              <path class="fig__rule draw" pathLength="1" style="--d:600ms" d="M250 36L262 48M262 36L250 48"/>
+              <path class="fig__rule draw" pathLength="1" style="--d:660ms" d="M250 102L262 114M262 102L250 114"/>
+
+              <g class="fig__pulse fig__pulse--route"><circle class="fig__dot" cx="14" cy="75" r="3.2"/></g>
+            </svg>
+            <h3 class="cap__title">Strategic advice</h3>
+            <p>
+              Where spatial computing is worth the investment and where it is
+              not. Feasibility, technology choice and route to delivery, usually
+              before a programme has committed to an approach.
+            </p>
+          </article>
+
+          <article class="cap reveal">
             <!-- An asset and its synchronised model, kept in step. -->
             <svg class="fig" viewBox="0 0 320 150" aria-hidden="true" focusable="false">
               <rect class="fig__grid" width="320" height="150" fill="url(#graph)"/>
@@ -211,7 +239,9 @@
           <p class="lede reveal">
             Worldtick works as a specialist partner within larger delivery teams —
             bringing depth in the visualisation and simulation layer to programmes
-            led by systems integrators and prime contractors.
+            led by systems integrators and prime contractors. Often that starts
+            before delivery does: shaping what is worth building, and what it
+            will take, while the approach is still open.
           </p>
 
           <!-- A programme as a stack of layers, with one of them ours. -->
