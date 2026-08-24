@@ -74,18 +74,19 @@ The street grid deliberately stays put: the city changes, the ground it sits
 on doesn't. The first build is seeded (`0x5EED`) so the generated poster and
 OG image match what a visitor sees on load.
 
-**The first load does not start the resolve from zero.** `FIRST_RUN_HEADSTART`
-in `js/stage.js` puts it 80 ticks in, and the epoch is anchored to the first
-rendered frame rather than to tick 0. Both halves of that matter. Anchoring to
-tick 0 meant the convergence played out behind the poster while the renderer
-was still downloading, so what survived depended entirely on connection speed —
-on a warm cache the visitor met a static block and then the traffic arrived a
-beat later as an unexplained second event. Starting from a bare scatter is
-wrong in the other direction: the poster is a *resolved* city, so cross-fading
-it into a shell of loose points reads as the page falling apart before it
-builds. At 80 the canvas arrives on a city that already matches the poster's
-composition and is still visibly settling. Re-run still plays the full
-convergence from zero, because there the viewer asked to watch it.
+**The resolve is anchored to the first rendered frame, not to tick 0.** This is
+easy to get wrong and the failure is invisible in development. `js/stage.js`
+sets `resolveEpoch = tick` on the first frame that reaches the canvas. Keyed to
+tick 0 instead, the convergence ran on the shared clock while the renderer was
+still downloading — so it played out behind the poster, and how much of it the
+visitor saw depended entirely on their connection speed. On a warm cache it was
+over before the canvas appeared: the first load cut straight from the poster to
+the finished city, and the traffic arriving a beat later was the only motion
+left. A local server hides this completely, because the import is instant.
+
+Do not try to soften the handoff by starting the resolve part-way in. It was
+tried, and it trades the whole animation away for a marginally smoother
+cross-fade — first load has to show the same convergence that re-run does.
 
 One visual rule holds the scene together: **brightness means motion.** Only
 vehicles are near-white. Terrain is dimmed and gets no highlights, so the eye
