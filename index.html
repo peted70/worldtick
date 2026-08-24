@@ -42,8 +42,13 @@
 (() => {
   const de = document.documentElement;
   de.classList.add('js');
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  if (navigator.gpu || 'WebGL2RenderingContext' in window) de.classList.add('will-render');
+  // Two separate questions. will-render means a scene is coming at all, which
+  // is what reserves the re-run control's space. Whether to drop the poster is
+  // the narrower one: reduced motion keeps it, because there the canvas
+  // renders the very same resolved frame and there is nothing to give away.
+  if (!(navigator.gpu || 'WebGL2RenderingContext' in window)) return;
+  de.classList.add('will-render');
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) de.classList.add('still');
 })();
 </script>
 

@@ -153,7 +153,7 @@ img { max-width: 100%; display: block; }
    a fade: a transition can only start once the element has been painted, which
    is the flash we are trying to remove. Taken off again by js/main.js if no
    backend materialises, and then the poster is the fallback after all. */
-html.will-render .stage__poster { display: none; }
+html.will-render:not(.still) .stage__poster { display: none; }
 
 /* Dimmed by scroll position — the hero recedes rather than scrolling away. */
 .stage__scrim {
@@ -229,6 +229,13 @@ html.will-render .stage__poster { display: none; }
 .rerun::after  { content: ']'; margin-left: 0.5em; }
 .rerun:hover, .rerun:focus-visible { color: var(--signal-bright); }
 .rerun[hidden] { display: none; }
+/* The hero column is bottom-anchored, so letting this into the flow at the
+   moment the scene arrives shoves the wordmark and the readout upward by its
+   own height. Where the pre-paint probe says a scene is coming, it takes its
+   space from the first paint and only its visibility changes on reveal. Still
+   unfocusable and still out of the accessibility tree until js/main.js drops
+   [hidden], so it never offers itself as a control that does nothing. */
+html.will-render .rerun[hidden] { display: block; visibility: hidden; }
 
 .hero__line {
   margin-top: 1.25rem;

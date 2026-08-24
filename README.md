@@ -62,11 +62,27 @@ the first style resolution and the poster is never paintable at all. It is
 feature detection only — `navigator.gpu`, or `WebGL2RenderingContext` existing —
 with no context creation, so it costs nothing worth measuring.
 
+The probe answers **two** questions, and conflating them causes a bug.
+`will-render` means a scene is coming at all; `still` is added on top when the
+visitor prefers reduced motion. Only the poster cares about the second one —
+reduced motion keeps it, since the canvas there renders that same resolved
+frame and there is nothing to give away.
+
+The first question is what reserves space for the `[ re-run ]` control. The
+hero column is bottom-anchored, so letting a 44px control into the flow at the
+moment the scene arrives shoves the wordmark and the readout upward. Under
+`will-render` it holds its slot from the first paint and only its visibility
+changes, while `[hidden]` keeps it unfocusable and out of the accessibility
+tree until there is something for it to act on. Note that this has to key off
+`will-render` alone: reduced motion gets the control too, so gating the
+reservation on motion preference reintroduces the jump for exactly the people
+least likely to want it.
+
 That makes it a bet, so it has to be reversible. `js/main.js` does the real
-check and calls `restorePoster()` if a context cannot actually be created, or
-if the renderer throws once loaded. Reduced motion never takes the bet at all:
-the canvas there renders the same resolved frame the poster shows, so there is
-nothing to spoil.
+check and calls `revertToPoster()` if a context cannot actually be created, or
+if the renderer throws once loaded. That drops `will-render`, which brings the
+poster back and releases the reserved space — correct on both counts, since
+with no scene the control never appears.
 
 The wait falls through to the holding screen underneath — the masked
 graph-paper pool on `.stage::before`, under the wordmark and the already

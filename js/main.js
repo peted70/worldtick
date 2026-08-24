@@ -47,7 +47,7 @@ async function initStage() {
   if (!navigator.gpu && !hasWebGL2()) {
     // The pre-paint probe in index.html was optimistic — the constructor
     // exists but a context cannot actually be created. Restore the poster.
-    restorePoster();
+    revertToPoster();
     return;
   }
 
@@ -64,15 +64,16 @@ async function initStage() {
   } catch (err) {
     // The renderer never arrived, so the poster is the fallback after all.
     // Nothing else on the page depends on this.
-    restorePoster();
+    revertToPoster();
     console.warn('[worldtick] 3D stage unavailable:', err);
   }
 }
 
 /* Undo the pre-paint bet in index.html. The holding screen is only ever a
- * stand-in for a scene that is coming; if none is, the poster has to come
- * back or the hero stays an empty grid. */
-function restorePoster() {
+ * stand-in for a scene that is coming; if none is, the poster has to come back
+ * or the hero stays an empty grid. This also releases the space held for the
+ * re-run control, which is right — with no scene it will never appear. */
+function revertToPoster() {
   document.documentElement.classList.remove('will-render');
 }
 
