@@ -338,6 +338,12 @@ html.will-render .rerun[hidden] { display: block; visibility: hidden; }
 .how { display: grid; gap: 2.75rem; }
 .fig--how { margin-bottom: 0; }
 
+/* Tighter than .how, which separates a lede from a figure. Here the two
+   paragraphs are one short note, so they sit closer and the second drops to
+   the secondary colour rather than reading as a second claim. */
+.bio { display: grid; gap: 1.375rem; }
+.bio__more { color: var(--slate); max-width: var(--measure); text-wrap: pretty; }
+
 @keyframes fig-sync {
   0%, 6%   { transform: translateX(0); opacity: 0; }
   14%      { opacity: 1; }
