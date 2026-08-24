@@ -9,7 +9,7 @@ Single-page static site for Worldtick Ltd. Plain HTML, CSS and ES modules —
 
 - [x] Footer now carries the real company number and registered office. UK
       companies must state these on their website, and commercial teams do check.
-- [ ] Point the DNS at GitHub Pages (below).
+- [x] Point the DNS at GitHub Pages (below). Live, with HTTPS enforced.
 - [ ] Test on a real phone. Canvas performance and iOS Safari's `100dvh`
       behaviour do not emulate reliably.
 
@@ -295,10 +295,10 @@ Two things that mattered, and still would if this is ever redone:
   `worldtick.co.uk` mail, including `enquiries@`, and have nothing to do with
   Pages.
 
-**Still outstanding:** tick **Enforce HTTPS** in the repository's Pages
-settings. The checkbox is greyed out until GitHub has issued the certificate,
-which can take up to 24 hours after DNS goes live. Until then the site is
-`http://` only. Check with `curl -sI https://worldtick.co.uk | head -1`.
+**HTTPS is enforced.** GitHub issued the certificate for both `worldtick.co.uk`
+and `www.` (renews 18 Nov 2026) and `http://` now 301s to `https://`. Nothing
+to do unless the domain changes, which revokes the certificate and starts the
+wait again. Check with `curl -sI https://worldtick.co.uk | head -1`.
 
 ---
 
