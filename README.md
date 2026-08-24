@@ -46,6 +46,17 @@ The page is readable before any of the 3D arrives:
 | 3 | WebGL2 only | Full scene — three.js falls back automatically |
 | 4 | WebGPU | Full scene |
 
+The poster is only ever the *fallback*, never the loading screen. As soon as
+`js/main.js` knows a backend exists it puts `will-render` on the stage, which
+drops the poster and hands the wait to the holding screen — the graph-paper
+pool on `.stage::before`, under the wordmark and the already-running counter.
+The poster is a picture of the **resolved** city, so leaving it up while the
+renderer downloads gives away the ending and then forces the convergence to
+start out of a still of itself. If the renderer throws, the class comes off
+again and the poster resumes being the fallback. Reduced motion keeps the
+poster throughout, since there the canvas renders that same resolved frame and
+swapping would only blink.
+
 Point count is chosen by **viewport width, not by backend**: under 500px it
 drops to 34k structure points and 70 vehicles, above it 64k and 120. Both
 backends render whichever they are given.

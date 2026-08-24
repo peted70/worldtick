@@ -110,6 +110,25 @@ img { max-width: 100%; display: block; }
   background: var(--viewport);
   pointer-events: none;
 }
+/* The holding screen: a soft pool of graph paper on the ground colour, the
+   same motif the capability figures use. It sits behind both the poster and
+   the canvas, so it is only ever seen in the gap between dropping one and
+   revealing the other. Masked to a pool rather than run full bleed, which
+   would read as a wireframe backdrop instead of a scene about to arrive.
+   The mask is on a pseudo-element, not on .stage itself, or it would eat the
+   ground colour too and let the page background through at the edges. */
+.stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--viewport-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--viewport-grid) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 52%, #000 22%, transparent 76%);
+  mask-image: radial-gradient(ellipse at 50% 52%, #000 22%, transparent 76%);
+}
+
 .stage__poster,
 .stage__canvas {
   position: absolute;
@@ -127,6 +146,15 @@ img { max-width: 100%; display: block; }
    poster is never swapped out for an empty canvas. */
 .stage.is-live .stage__canvas { opacity: 1; }
 .stage.is-live .stage__poster { opacity: 0; transition: opacity 600ms ease; }
+
+/* Set by js/main.js as soon as the renderer is committed to. The poster is the
+   *resolved* city, so leaving it up until the canvas is ready both gives away
+   the ending and forces the convergence to start out of a picture of itself.
+   Dropping it early hands the wait to the holding screen instead — the
+   wordmark and the counter are already running, so there is something to look
+   at. Removed again if the renderer fails, because then the poster is the
+   fallback after all. */
+.stage.will-render .stage__poster { opacity: 0; transition: opacity 400ms ease; }
 
 /* Dimmed by scroll position — the hero recedes rather than scrolling away. */
 .stage__scrim {
