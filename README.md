@@ -46,16 +46,32 @@ The page is readable before any of the 3D arrives:
 | 3 | WebGL2 only | Full scene — three.js falls back automatically |
 | 4 | WebGPU | Full scene |
 
-The poster is only ever the *fallback*, never the loading screen. As soon as
-`js/main.js` knows a backend exists it puts `will-render` on the stage, which
-drops the poster and hands the wait to the holding screen — the graph-paper
-pool on `.stage::before`, under the wordmark and the already-running counter.
-The poster is a picture of the **resolved** city, so leaving it up while the
-renderer downloads gives away the ending and then forces the convergence to
-start out of a still of itself. If the renderer throws, the class comes off
-again and the poster resumes being the fallback. Reduced motion keeps the
-poster throughout, since there the canvas renders that same resolved frame and
-swapping would only blink.
+The poster is only ever the *fallback*, never the loading screen. It is a
+render of the **resolved** city, so showing it while the renderer downloads
+gives away the convergence and then makes that convergence start out of a still
+of its own last frame.
+
+The decision therefore happens in the inline probe in `<head>`, not in
+`js/main.js`, and that placement is the whole trick. `main.js` is a module: it
+has to be fetched and its imports resolved before a line of it runs, and the
+poster has painted long before that — hiding it afterwards just produces a
+flash, and fading it produces a longer one, since a transition cannot start
+until the element has been painted at least once. Running in `<head>` the probe
+sets `will-render` on `<html>` before `<body>` is parsed, so the rule applies at
+the first style resolution and the poster is never paintable at all. It is
+feature detection only — `navigator.gpu`, or `WebGL2RenderingContext` existing —
+with no context creation, so it costs nothing worth measuring.
+
+That makes it a bet, so it has to be reversible. `js/main.js` does the real
+check and calls `restorePoster()` if a context cannot actually be created, or
+if the renderer throws once loaded. Reduced motion never takes the bet at all:
+the canvas there renders the same resolved frame the poster shows, so there is
+nothing to spoil.
+
+The wait falls through to the holding screen underneath — the masked
+graph-paper pool on `.stage::before`, under the wordmark and the already
+running counter. Worth knowing: the poster is still fetched on the critical
+path even when it is never shown.
 
 Point count is chosen by **viewport width, not by backend**: under 500px it
 drops to 34k structure points and 70 vehicles, above it 64k and 120. Both

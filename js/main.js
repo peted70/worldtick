@@ -44,16 +44,12 @@ async function initStage() {
 
   // Cheap gate before pulling in the renderer at all: a browser with no WebGL2
   // and no WebGPU has nothing to gain from the download.
-  if (!navigator.gpu && !hasWebGL2()) return;
-
-  /* Commit to the scene now and drop the poster, rather than holding a picture
-   * of the resolved city over the wait and then dissolving it into the very
-   * convergence it gives away. See .stage.will-render in the stylesheet.
-   *
-   * Not under reduced motion: there the canvas renders the same resolved frame
-   * the poster already shows, so there is nothing to spoil and dropping it
-   * would only introduce a blink. */
-  if (!reducedMotion) root.classList.add('will-render');
+  if (!navigator.gpu && !hasWebGL2()) {
+    // The pre-paint probe in index.html was optimistic — the constructor
+    // exists but a context cannot actually be created. Restore the poster.
+    restorePoster();
+    return;
+  }
 
   try {
     const { createStage } = await import('./stage.js');
@@ -68,9 +64,16 @@ async function initStage() {
   } catch (err) {
     // The renderer never arrived, so the poster is the fallback after all.
     // Nothing else on the page depends on this.
-    root.classList.remove('will-render');
+    restorePoster();
     console.warn('[worldtick] 3D stage unavailable:', err);
   }
+}
+
+/* Undo the pre-paint bet in index.html. The holding screen is only ever a
+ * stand-in for a scene that is coming; if none is, the poster has to come
+ * back or the hero stays an empty grid. */
+function restorePoster() {
+  document.documentElement.classList.remove('will-render');
 }
 
 function hasWebGL2() {

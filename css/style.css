@@ -147,14 +147,13 @@ img { max-width: 100%; display: block; }
 .stage.is-live .stage__canvas { opacity: 1; }
 .stage.is-live .stage__poster { opacity: 0; transition: opacity 600ms ease; }
 
-/* Set by js/main.js as soon as the renderer is committed to. The poster is the
-   *resolved* city, so leaving it up until the canvas is ready both gives away
-   the ending and forces the convergence to start out of a picture of itself.
-   Dropping it early hands the wait to the holding screen instead — the
-   wordmark and the counter are already running, so there is something to look
-   at. Removed again if the renderer fails, because then the poster is the
-   fallback after all. */
-.stage.will-render .stage__poster { opacity: 0; transition: opacity 400ms ease; }
+/* Set before the first paint by the probe in index.html, so the resolved city
+   never appears ahead of the convergence it gives away — the wait falls
+   through to the holding screen instead. Deliberately display:none rather than
+   a fade: a transition can only start once the element has been painted, which
+   is the flash we are trying to remove. Taken off again by js/main.js if no
+   backend materialises, and then the poster is the fallback after all. */
+html.will-render .stage__poster { display: none; }
 
 /* Dimmed by scroll position — the hero recedes rather than scrolling away. */
 .stage__scrim {

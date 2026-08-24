@@ -30,8 +30,22 @@
 <link rel="preload" href="fonts/ibm-plex-sans-400.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="css/style.css">
 
-<!-- Synchronous, so scroll-reveal elements are never hidden on a no-JS page. -->
-<script>document.documentElement.classList.add('js');</script>
+<!-- Synchronous, so scroll-reveal elements are never hidden on a no-JS page,
+     and so the poster decision is made before the first paint. Deciding in
+     js/main.js is too late: it is a module, so it has to be fetched and its
+     imports resolved first, and the poster — a render of the *resolved* city —
+     has already flashed up by then and given away the convergence that
+     follows. Feature detection only, no context creation, so it costs nothing
+     worth measuring here. js/main.js does the real check and puts the poster
+     back if no backend actually materialises. -->
+<script>
+(() => {
+  const de = document.documentElement;
+  de.classList.add('js');
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if (navigator.gpu || 'WebGL2RenderingContext' in window) de.classList.add('will-render');
+})();
+</script>
 
 <script type="importmap">
 {"imports":{"three/webgpu":"./vendor/three.webgpu.min.js","three/tsl":"./vendor/three.tsl.min.js"}}
