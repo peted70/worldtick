@@ -74,6 +74,19 @@ The street grid deliberately stays put: the city changes, the ground it sits
 on doesn't. The first build is seeded (`0x5EED`) so the generated poster and
 OG image match what a visitor sees on load.
 
+**The first load does not start the resolve from zero.** `FIRST_RUN_HEADSTART`
+in `js/stage.js` puts it 80 ticks in, and the epoch is anchored to the first
+rendered frame rather than to tick 0. Both halves of that matter. Anchoring to
+tick 0 meant the convergence played out behind the poster while the renderer
+was still downloading, so what survived depended entirely on connection speed —
+on a warm cache the visitor met a static block and then the traffic arrived a
+beat later as an unexplained second event. Starting from a bare scatter is
+wrong in the other direction: the poster is a *resolved* city, so cross-fading
+it into a shell of loose points reads as the page falling apart before it
+builds. At 80 the canvas arrives on a city that already matches the poster's
+composition and is still visibly settling. Re-run still plays the full
+convergence from zero, because there the viewer asked to watch it.
+
 One visual rule holds the scene together: **brightness means motion.** Only
 vehicles are near-white. Terrain is dimmed and gets no highlights, so the eye
 finds the moving points immediately instead of hunting for them in a sparkly
@@ -169,6 +182,15 @@ which is effectively at infinity and should not parallax.
 The moon is a sprite with no texture — a disc and a faint halo computed from
 the sprite's own UVs, so it stays crisp at any size and costs nothing to
 download.
+
+The one rule that keeps it looking like a moon: **the halo has to reach zero
+before the edge of the sprite's quad.** In UV space the quad's inscribed circle
+has radius 0.5, so `MOON_HALO_EDGE` must stay under that. It used to end at
+0.60, which meant that along each edge of the quad the halo was still at about
+3% alpha when the geometry simply stopped — and a faint hard boundary that is
+present along the edges but absent at the corners reads as a rounded square
+floating in the sky. The radii are kept in proportion to `MOON_SIZE`, so
+changing one without the other reintroduces the tile.
 
 Meteors are four streaks, each a 72-point trail on the same `fract()` cycle as
 the traffic, visible for only 5% of a 25–70 second cycle. `METEOR_TRAIL_SPAN`

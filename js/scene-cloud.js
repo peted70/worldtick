@@ -257,7 +257,7 @@ function buildSky({ uTick, uPixelScale }) {
         halfH * (0.46 + t * 0.26),
         SKY_Z,
       );
-      const size = halfH * 0.16;
+      const size = halfH * MOON_SIZE;
       moon.scale.set(size, size, 1);
     },
     dispose() {
@@ -267,14 +267,26 @@ function buildSky({ uTick, uPixelScale }) {
   };
 }
 
+/* Radii in the sprite's own UV space, where the quad's inscribed circle has
+ * radius 0.5. MOON_HALO_EDGE has to stay comfortably inside that: the halo
+ * must reach zero before the quad boundary, or the sprite's own edge shows up
+ * as a hard-cornered tile in the sky. It used to end at 0.60, so along each
+ * edge the halo was still at ~3% alpha when the quad simply stopped — which is
+ * what made the moon read as a rounded square. MOON_SIZE is scaled up by the
+ * same factor these came down by, so the moon's apparent size is unchanged. */
+const MOON_DISC_EDGE = 0.22;
+const MOON_DISC_FEATHER = 0.24;
+const MOON_HALO_EDGE = 0.48;
+const MOON_SIZE = 0.20;      // fraction of the half-height of the sky plane
+
 function buildMoon() {
   const material = new THREE.SpriteNodeMaterial({ transparent: true, depthWrite: false });
 
   // A disc plus a faint halo, drawn from the sprite's own UVs — no texture,
   // so it stays crisp at any size and adds nothing to the download.
   const d = uv().sub(0.5).length();
-  const disc = d.smoothstep(0.30, 0.275);
-  const halo = d.smoothstep(0.60, 0.30).mul(0.13);
+  const disc = d.smoothstep(MOON_DISC_FEATHER, MOON_DISC_EDGE);
+  const halo = d.smoothstep(MOON_HALO_EDGE, MOON_DISC_FEATHER).mul(0.13);
 
   material.colorNode = vec4(vec3(...COLOR.moon.toArray()), disc.add(halo).clamp(0, 1));
 

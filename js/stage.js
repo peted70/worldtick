@@ -14,6 +14,23 @@ const LOOK_AT = new THREE.Vector3(...CAMERA.lookAt);
 const SCROLL_PULLBACK = 20;   // world units the camera retreats over the page
 const MAX_SCRIM = 0.65;       // how far the stage dims behind the document
 
+/* How far into the resolve the scene already is on the first frame.
+ *
+ * The renderer is a lazy import, so the shared clock has been running for an
+ * unknown number of ticks by the time there is anything to draw. Anchoring the
+ * resolve to tick 0 meant it played out behind the poster while nobody could
+ * see it, and how much survived depended purely on download speed — on a warm
+ * cache the visitor met a static block, then the traffic arrived a moment
+ * later as a separate event.
+ *
+ * Anchoring it to the first frame instead makes it deterministic, but starting
+ * from a bare scatter is wrong too: the poster is a *resolved* city, so
+ * cross-fading it into a shell of loose points reads as the page falling apart
+ * before it builds. Starting part-way in means the canvas arrives on a city
+ * that is already legible and still visibly rising. Re-run gets the full
+ * convergence from zero, because there the viewer asked to watch it. */
+const FIRST_RUN_HEADSTART = 80;
+
 const DRIFT_PER_TICK = 0.00035;  // ~1.2 degrees per second. Drift, not spin.
 const POINTER_THETA = 0.10;      // radians of parallax at full deflection
 const POINTER_PHI = 0.05;
@@ -195,6 +212,7 @@ export async function createStage({ root, canvas, hero, ticker, reducedMotion })
     resize();
     readScroll();
     scheduleCut(ticker.tick);
+    resolveEpoch = ticker.tick - FIRST_RUN_HEADSTART;
 
     ticker.onStep((tick) => {
       // Fixed-step, so these easing constants behave identically everywhere.
