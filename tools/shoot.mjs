@@ -2,8 +2,9 @@
  *
  *   node tools/shoot.mjs [baseUrl]
  *
- * Writes img/hero-poster.jpg, img/og.jpg and apple-touch-icon.png.
- * Run whenever the scene changes; the output is committed.
+ * Writes img/hero-poster.jpg and img/og.jpg. Run whenever the scene changes;
+ * the output is committed. Icons and the flat brand graphics come from
+ * tools/brand/build.mjs instead — they are drawn, not rendered.
  */
 
 import { launch } from './cdp.mjs';
@@ -27,11 +28,6 @@ const SHOTS = [
     out: 'img/og.jpg',
     url: 'tools/shoot.html?mode=og',
     width: 1200, height: 630, format: 'jpeg', quality: 86,
-  },
-  {
-    out: 'apple-touch-icon.png',
-    url: 'tools/icon.html',
-    width: 180, height: 180, format: 'png',
   },
 ];
 

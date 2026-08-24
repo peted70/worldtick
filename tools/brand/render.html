@@ -1,0 +1,261 @@
+<!doctype html>
+<!-- Offline asset renderer for the brand set. Not deployed, not linked from
+     the site. Driven by tools/brand/build.mjs, which sets an exact viewport and
+     screenshots one composition per load:
+
+       render.html?family=tick&asset=og
+
+     The glyph geometry comes from marks.mjs so this page and the SVG writer in
+     build.mjs cannot drift apart. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>worldtick brand</title>
+<style>
+  /* Local copies, so the render never waits on a network font. */
+  @font-face {
+    font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 500;
+    src: url('../../fonts/ibm-plex-mono-500.woff2') format('woff2'); font-display: block;
+  }
+  @font-face {
+    font-family: 'IBM Plex Sans'; font-style: normal; font-weight: 400;
+    src: url('../../fonts/ibm-plex-sans-400.woff2') format('woff2'); font-display: block;
+  }
+
+  :root {
+    --ground: #0C1116; --grid: #1A2129; --accent: #4D8BFF;
+    --paper: #F2F4F3; --dim: #B8C0C6; --slate: #7E878E;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --sans: 'IBM Plex Sans', system-ui, sans-serif;
+  }
+
+  /* Without this the padding on a composition adds to its 100vh height and
+     pushes the bottom row off the canvas. */
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--ground); }
+  #root { position: fixed; inset: 0; }
+  svg { display: block; }
+
+  /* A plain tile fills the whole viewport — the capture size is the icon size. */
+  .tile svg { width: 100vw; height: 100vh; }
+
+  /* ---------- shared furniture for the composed graphics ---------- */
+
+  .art {
+    position: relative; width: 100vw; height: 100vh;
+    background: var(--ground); overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  /* The hairline grid echoes the one under the hero scene, so the flat assets
+     and the live site read as the same surface. */
+  .art::before {
+    content: ''; position: absolute; inset: 0;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: var(--cell, 40px) var(--cell, 40px);
+    opacity: 0.55;
+  }
+  /* Vignette plus one cool bloom behind the mark, so the flat ground has the
+     same depth as the rendered scene rather than looking like a slide. */
+  .art::after {
+    content: ''; position: absolute; inset: 0;
+    background:
+      radial-gradient(60% 90% at var(--bloom-x, 12%) var(--bloom-y, 22%),
+                      rgba(77,139,255,0.16), transparent 62%),
+      radial-gradient(120% 120% at 50% 50%, transparent 38%, rgba(6,9,12,0.85));
+  }
+  .art > * { position: relative; z-index: 1; }
+
+  .mark { flex: none; }
+  .wordmark {
+    font-family: var(--mono); font-weight: 500; letter-spacing: -0.03em;
+    line-height: 1.02; margin: 0; white-space: nowrap;
+  }
+  .wordmark .a { color: var(--paper); }
+  .wordmark .b { color: var(--accent); }
+  .wordmark .c { color: var(--slate); }
+  .strap {
+    font-family: var(--sans); color: var(--dim); margin: 0;
+    line-height: 1.45; text-wrap: balance;
+  }
+  .meta {
+    font-family: var(--mono); font-weight: 500; color: var(--slate);
+    text-transform: uppercase; letter-spacing: 0.14em; margin: 0;
+  }
+  .rule { border: 0; border-top: 1px solid #232C36; margin: 0; }
+
+  /* ---------- og 1200x630 ---------- */
+  .og { padding: 76px; justify-content: space-between; }
+  .og .mark { width: 76px; height: 76px; }
+  .og .wordmark { font-size: 92px; }
+  .og .strap { font-size: 27px; max-width: 800px; margin-top: 26px; }
+  .og .foot { display: flex; align-items: baseline; justify-content: space-between; }
+  .og .meta { font-size: 19px; }
+
+  /* ---------- x-banner 1500x500 ---------- */
+  /* Centred: X crops the sides on narrow viewports and drops the avatar over
+     the bottom-left, so nothing load-bearing goes near an edge. */
+  .banner { --cell: 50px; --bloom-x: 50%; --bloom-y: 34%;
+    align-items: center; justify-content: center; padding: 0 120px 74px; }
+  .banner .row { display: flex; align-items: center; gap: 34px; }
+  .banner .mark { width: 96px; height: 96px; }
+  .banner .wordmark { font-size: 88px; }
+  .banner .strap { font-size: 25px; text-align: center; margin-top: 24px; max-width: 900px; }
+
+  /* ---------- linkedin 1128x191 ---------- */
+  /* Right-weighted: a company page drops its logo over the bottom-left corner. */
+  .li { --cell: 32px; --bloom-x: 78%; --bloom-y: 50%;
+    flex-direction: row; align-items: center; justify-content: flex-end;
+    gap: 26px; padding: 0 56px; }
+  .li .mark { width: 62px; height: 62px; }
+  .li .wordmark { font-size: 54px; }
+  .li .strap { font-size: 17px; max-width: 300px; border-left: 1px solid #232C36;
+               padding-left: 26px; }
+
+  /* ---------- lockup 1200x300 ---------- */
+  .lockup { --cell: 40px; --bloom-x: 50%; --bloom-y: 50%;
+    flex-direction: row; align-items: center; justify-content: center; gap: 40px; }
+  .lockup .mark { width: 132px; height: 132px; }
+  .lockup .wordmark { font-size: 104px; }
+
+  /* ---------- contact sheet ---------- */
+  .sheet { --cell: 40px; padding: 52px 56px; gap: 34px; }
+  .sheet h1 { font-family: var(--mono); font-weight: 500; font-size: 26px;
+              color: var(--paper); margin: 0; letter-spacing: -0.01em; }
+  .sheet h1 span { color: var(--slate); }
+  .sheet .grp { display: flex; align-items: flex-end; gap: 30px; flex-wrap: wrap; }
+  .sheet .cap { font-family: var(--mono); font-size: 12px; color: var(--slate);
+                margin: 14px 0 0; text-align: center; letter-spacing: 0.04em; }
+  .sheet .cell { text-align: center; }
+  /* The square treatments share the sheet's own ground, so without a hairline
+     you cannot see where the tile ends. */
+  .sheet .box { outline: 1px dashed rgba(242,244,243,0.12); outline-offset: 4px; }
+  .sheet .box.round { border-radius: 50%; overflow: hidden; }
+  .sheet .box.paper { background: var(--paper); border-radius: 7px;
+                      display: grid; place-items: center; }
+  .sheet .box.paper svg { width: 72%; height: 72%; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="module">
+import { tile, glyph, TREATMENTS, PALETTE } from './marks.mjs';
+
+const q = new URLSearchParams(location.search);
+const family = q.get('family') || 'tick';
+const asset = q.get('asset') || 'favicon';
+
+const STRAP = 'Spatial computing, digital twins and 3D visualisation for '
+            + 'public sector and enterprise programmes.';
+const SHORT = 'Spatial computing, digital twins and 3D visualisation.';
+
+const word = (cls = '') =>
+  `<p class="wordmark ${cls}"><span class="a">world</span><span class="b">.tick</span><span class="c">()</span></p>`;
+
+/** A treatment tile sized to fill its CSS box. */
+const t = (name, opts = {}) =>
+  tile(family, { ...TREATMENTS[name], ...opts });
+
+/** The mark as a logo bug on a composed graphic. No ground of its own: the
+ *  tile is the same colour as the art but the art is lit, so a tile reads as a
+ *  dull patch behind the glyph rather than as an edge. */
+const bug = () => tile(family, { ground: null });
+
+const COMPOSITIONS = {
+  // Plain icons: the tile is the whole image.
+  favicon:  () => `<div class="tile">${t('favicon')}</div>`,
+  touch:    () => `<div class="tile">${t('touch')}</div>`,
+  pwa:      () => `<div class="tile">${t('pwa')}</div>`,
+  maskable: () => `<div class="tile">${t('maskable')}</div>`,
+
+  // Profile picture: square file, but every platform crops it to a circle, so
+  // the ground carries the grid and the glyph stays well inside the safe disc.
+  avatar: () => `
+    <div class="art" style="--cell:34px;--bloom-x:50%;--bloom-y:38%">
+      <div class="mark" style="position:absolute;inset:0">${t('avatar', { ground: null })}</div>
+    </div>`,
+
+  og: () => `
+    <div class="art og">
+      <div class="mark">${bug()}</div>
+      <div>
+        ${word()}
+        <p class="strap">${STRAP}</p>
+      </div>
+      <div>
+        <hr class="rule">
+        <div class="foot" style="margin-top:22px">
+          <p class="meta">worldtick.co.uk</p>
+          <p class="meta">Worldtick Ltd</p>
+        </div>
+      </div>
+    </div>`,
+
+  'x-banner': () => `
+    <div class="art banner">
+      <div class="row"><div class="mark">${bug()}</div>${word()}</div>
+      <p class="strap">${SHORT}</p>
+    </div>`,
+
+  'linkedin-banner': () => `
+    <div class="art li">
+      <div class="mark">${bug()}</div>
+      ${word()}
+      <p class="strap">${SHORT}</p>
+    </div>`,
+
+  lockup: () => `
+    <div class="art lockup">
+      <div class="mark">${bug()}</div>
+      ${word()}
+    </div>`,
+
+  // Proof sheet: every icon treatment at true size, for eyeballing the set.
+  sheet: () => {
+    const cell = (svg, cap, px, cls = '') =>
+      `<div class="cell"><div class="box ${cls}" style="width:${px}px;height:${px}px">${svg}</div>
+       <p class="cap">${cap}</p></div>`;
+    const sizes = [16, 32, 48].map((n) => cell(t('favicon'), `${n}px`, n)).join('');
+    const knockout = tile(family, {
+      ...TREATMENTS.favicon, ground: PALETTE.accent, color: PALETTE.ground,
+    });
+    return `
+      <div class="art sheet">
+        <h1>worldtick <span>/ ${family} set</span></h1>
+        <div class="grp">
+          ${sizes}
+          ${cell(t('favicon'), 'favicon', 96)}
+          ${cell(t('touch'), 'apple-touch', 96)}
+          ${cell(t('pwa'), 'pwa 192 / 512', 96)}
+          ${cell(t('maskable'), 'maskable', 96)}
+          ${cell(t('avatar'), 'avatar (cropped)', 96, 'round')}
+          ${cell(knockout, 'knockout', 96)}
+          ${cell(tile(family, { ground: null }), 'on paper', 96, 'paper')}
+        </div>
+        <div class="grp" style="align-items:center;gap:36px">
+          <div class="mark" style="width:104px;height:104px">${bug()}</div>
+          ${word()}
+          <p class="strap" style="font-size:18px;max-width:340px;margin:0;
+             border-left:1px solid #232C36;padding-left:28px">${STRAP}</p>
+        </div>
+      </div>`;
+  },
+};
+
+const build = COMPOSITIONS[asset];
+if (!build) throw new Error(`Unknown asset: ${asset}`);
+document.getElementById('root').innerHTML = build();
+
+// The sheet sets its wordmark size after layout so it fits the sheet width.
+if (asset === 'sheet') {
+  for (const w of document.querySelectorAll('.sheet .wordmark')) w.style.fontSize = '64px';
+}
+
+await document.fonts.ready;
+requestAnimationFrame(() => { window.__shotReady = true; });
+</script>
+</body>
+</html>

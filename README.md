@@ -7,9 +7,8 @@ Single-page static site for Worldtick Ltd. Plain HTML, CSS and ES modules —
 
 ## Before this goes live
 
-- [ ] Replace the two placeholders in the footer of `index.html`: `[COMPANY NUMBER]`
-      and `[REGISTERED OFFICE ADDRESS]`. UK companies must state these on their
-      website, and commercial teams do check.
+- [x] Footer now carries the real company number and registered office. UK
+      companies must state these on their website, and commercial teams do check.
 - [ ] Point the DNS at GitHub Pages (below).
 - [ ] Test on a real phone. Canvas performance and iOS Safari's `100dvh`
       behaviour do not emulate reliably.
@@ -27,6 +26,7 @@ js/stage.js           Renderer, camera, pointer/touch/scroll input.
 js/scene-cloud.js     Massing, streets, traffic and shading. The swappable part.
 js/reveal.js          IntersectionObserver scroll reveals.
 vendor/               three.js r185, committed. No CDN, no third-party requests.
+brand/                Generated icons and social graphics. See brand/README.md.
 tools/                Offline tooling. Never deployed, never linked.
 ```
 
@@ -190,7 +190,8 @@ camera cuts and no motion of any kind.
 ```bash
 python -m http.server 8765          # any static server; there is nothing to build
 node tools/verify.mjs               # layout + fallback checks at every breakpoint
-node tools/shoot.mjs                # regenerate poster, OG image and touch icon
+node tools/shoot.mjs                # regenerate the poster and OG image
+node tools/brand/build.mjs --live=tick   # regenerate the icons and brand graphics
 ```
 
 `tools/verify.mjs` drives headless Chrome over the DevTools Protocol and
@@ -204,6 +205,13 @@ in `tools/_shots/` (gitignored). Run it after any CSS or scene change.
 Regenerate the imagery with `tools/shoot.mjs` whenever the scene changes — the
 poster and OG image are rendered from the real scene, not drawn separately, so
 they stay in step automatically.
+
+`tools/brand/build.mjs` is the other half: the flat assets, which are drawn
+rather than rendered. It writes both mark sets into `brand/`, and `--live=<set>`
+copies that set's icons to the site root. It serves the project over a throwaway
+local HTTP server while it works, because Chrome refuses ES module imports over
+`file://` and the render page imports the mark geometry. See
+[`brand/README.md`](brand/README.md) for what each file is for.
 
 ---
 
@@ -235,8 +243,14 @@ but the hero and contact sections put the same roles on `--viewport`:
 
 The wordmark is real text rather than inline SVG. The spec asked for SVG so it
 scales and inherits colour; real text in IBM Plex Mono does both, and is also
-selectable, searchable and readable by a screen reader. `favicon.svg` is still
-SVG, hand-drawn as arcs so it needs no font at 16×16.
+selectable, searchable and readable by a screen reader. The favicon is still
+SVG, drawn as paths so it needs no font at 16×16.
+
+The mark itself is drawn twice, and both sets ship: a tick, for the name, and
+the wordmark's `()` glyph. The original `()` favicon had its two arcs crossing —
+the `(` was drawn on the right of the box and the `)` on the left — so it closed
+into an X at 16px. The rebuilt one holds the pair well apart, which is what the
+counter between them needs at that size.
 
 Per-capability imagery and the video loops were dropped. With a live scene
 behind the whole page they were redundant, and the spec's own instruction was

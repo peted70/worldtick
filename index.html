@@ -18,8 +18,13 @@
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
 
+<!-- .ico first for browsers that ignore the SVG; anything modern takes the SVG.
+     All of these are built by tools/brand/build.mjs — edit the mark there. -->
+<link rel="icon" href="favicon.ico" sizes="32x32">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="mask-icon" href="pinned-tab.svg" color="#4D8BFF">
+<link rel="manifest" href="site.webmanifest">
 
 <link rel="preload" href="fonts/ibm-plex-mono-500.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/ibm-plex-sans-400.woff2" as="font" type="font/woff2" crossorigin>
@@ -34,7 +39,7 @@
 <script type="module" src="js/main.js"></script>
 
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Organization","name":"Worldtick Ltd","url":"https://worldtick.co.uk/","email":"enquiries@worldtick.co.uk","description":"Specialist consultancy in spatial computing, digital twins and 3D visualisation.","address":{"@type":"PostalAddress","addressCountry":"GB"}}
+{"@context":"https://schema.org","@type":"Organization","name":"Worldtick Ltd","url":"https://worldtick.co.uk/","logo":"https://worldtick.co.uk/icon-512.png","email":"enquiries@worldtick.co.uk","description":"Specialist consultancy in spatial computing, digital twins and 3D visualisation.","address":{"@type":"PostalAddress","streetAddress":"17 Shelley Close","addressLocality":"Christchurch","postalCode":"BH23 4HW","addressCountry":"GB"}}
 </script>
 </head>
 <body>
@@ -221,11 +226,16 @@
 
   <footer class="viewport foot">
     <div class="wrap">
+      <!-- Decorative: "Worldtick Ltd" is in the text directly below, so
+           announcing the mark too would just repeat the name. Geometry is
+           copied from brand/tick/mark.svg — regenerate there, not here. -->
+      <svg class="foot__mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+        <path d="M6.8 16.2 L12.6 22 L25.4 7.2"/>
+      </svg>
       <p>
         <strong>Worldtick Ltd</strong> — registered in England and Wales.<br>
-        <!-- TODO before launch: replace both placeholders with the real values. -->
-        Company number <span class="todo">[COMPANY NUMBER]</span>.<br>
-        Registered office: <span class="todo">[REGISTERED OFFICE ADDRESS]</span>.
+        Company number 17411363.<br>
+        Registered office: 17 Shelley Close, Christchurch BH23&nbsp;4HW, United Kingdom.
       </p>
     </div>
   </footer>

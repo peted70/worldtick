@@ -381,7 +381,21 @@ img { max-width: 100%; display: block; }
   color: var(--slate-dark);
 }
 .foot strong { font-weight: 600; color: var(--paper-dim); }
-.todo { border-bottom: 1px dashed currentColor; }
+/* stroke-width is in the mark's own 32-unit space, so it scales with the box. */
+.foot__mark {
+  display: block;
+  width: 1.75rem;
+  height: 1.75rem;
+  /* The tick's ink starts at x=6.8 of 32, so the box hangs left to put the
+     stroke itself on the text margin rather than the empty box edge. */
+  margin-left: -0.3rem;
+  margin-bottom: 1.5rem;
+  fill: none;
+  stroke: var(--signal-bright);
+  stroke-width: 3.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
 /* ---------- Scroll reveals ----------
    Only hidden when JS is running, so the no-JS page is complete. */
