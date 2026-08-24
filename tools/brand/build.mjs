@@ -123,7 +123,12 @@ const RASTERS = [
   // cover. The old 1128x191 was the long-standing spec and is the same 5.906:1
   // aspect, but it now falls under the minimum and the upload is rejected
   // outright — so this has to be regenerated, not rescaled on upload.
-  { file: 'linkedin-1512x256.png',    asset: 'linkedin-banner', w: 1512, h: 256 },
+  // JPEG, not PNG, and that is LinkedIn's own instruction: "choose a
+  // high-resolution JPEG instead of a PNG file". Their uploader rejected a
+  // structurally clean PNG at the correct size with only a generic retry
+  // message, so the format is the next variable worth removing.
+  { file: 'linkedin-1512x256.jpg',    asset: 'linkedin-banner', w: 1512, h: 256,
+    format: 'jpeg', quality: 92 },
   { file: 'lockup-1200x300.png',      asset: 'lockup',          w: 1200, h: 300 },
 
   // Proof sheet, for reviewing the set. Not for use.
@@ -210,7 +215,7 @@ const run = async () => {
           await new Promise((r) => setTimeout(r, 100));
         }
 
-        const data = await b.screenshot({ format: 'png' });
+        const data = await b.screenshot({ format: s.format || 'png', quality: s.quality });
         writeFileSync(join(dir, s.file), data);
         if (/^favicon-(16|32|48)\.png$/.test(s.file)) icoParts.push({ size: s.w, data });
       }

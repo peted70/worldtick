@@ -41,7 +41,7 @@ hairline grid and a single cool bloom, matching the live hero.
 | ---- | ---- | --- |
 | `og-1200x630.png` | 1200×630 | Open Graph / Twitter `summary_large_image` |
 | `x-banner-1500x500.png` | 1500×500 | X header. Centred, clear of the avatar and the mobile crop |
-| `linkedin-1512x256.png` | 1512×256 | LinkedIn page cover. Right-weighted, clear of the page logo |
+| `linkedin-1512x256.jpg` | 1512×256 | LinkedIn page cover. Right-weighted, clear of the page logo. JPEG on LinkedIn's own advice — see below |
 | `lockup-1200x300.png` | 1200×300 | mark plus wordmark, for slides and documents |
 | `lockup.svg` | vector | the same lockup. Text stays live, so it needs IBM Plex Mono to be exact — use the PNG where you cannot guarantee the font |
 | `avatar-512.png` | 512 | social profile picture. Square file, safe under a circular crop |
@@ -64,6 +64,18 @@ to. Scale the block's rules by the same factor as the canvas.
 Current published minimums, worth re-checking before regenerating: page cover
 1512×256, page logo 268×268 minimum and 400×400 recommended, both PNG or JPEG
 under 3MB.
+
+The cover is the one **JPEG** in the set, which is LinkedIn's own instruction —
+"choose a high-resolution JPEG instead of a PNG file". A correctly sized PNG
+carrying nothing but IHDR, IDAT and IEND was still refused with a generic retry
+message, so format was the next variable to remove. `RASTERS` entries take an
+optional `format` and `quality`; everything else stays PNG, where lossless
+matters for the icons.
+
+Worth saying plainly: LinkedIn's upload errors do not name the rule that was
+broken, so diagnose by checking the file yourself — dimensions, signature,
+chunk list, byte size — before assuming the asset is wrong. Twice now it has
+been faster to rule the file out than to read the message.
 
 ## Where the mark appears on the site
 
